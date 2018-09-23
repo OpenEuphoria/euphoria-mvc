@@ -1,0 +1,15 @@
+{% extends layout.html %}
+{% block content %}
+{# this is a comment #}
+  <h3>{% if debug %}DEBUG MODE{% else %}PRODUCTION MODE{% end if %}</h3>
+{% for item in list %}
+  <h2>chapter {{item}}</h2>
+  <li>
+    <ul>
+{% for i = start to stop by step %}
+      <li>Item {{ i }}</li>
+{% end for %}
+    </ul>
+  </li>
+{% end for %}
+{% end block %}
