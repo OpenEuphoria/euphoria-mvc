@@ -66,7 +66,7 @@ Save this as `templates/index.html`.
     <!DOCTYPE html>
     <html>
     <head>
-      <title>{{title}</title>
+      <title>{{title}}</title>
     </head>
     <body>
       <h1>{{title}}</h1>

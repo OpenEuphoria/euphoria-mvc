@@ -5,7 +5,7 @@
     <!DOCTYPE html>
     <html>
     <head>
-      <title>{{title}</title>
+      <title>{{title}}</title>
     </head>
     <body>
       <h1>{{title}}</h1>
@@ -14,13 +14,35 @@
 
 ## Template routines
 
+### add_function
+
+Add a function that can be called from an expression.
+
+`include mvc/template.e`  
+`add_function( sequence func_name, sequence params, integer func_id )`
+
+- **`func_name`** - name of the function to add
+- **`params`** - list of parameter names
+- **`func_id`** - the routine_id() of the function
+
 ### render_template
+
+Render a template with the given response object.
 
 `include mvc/template.e`  
 `public function render_template( sequence template, object response )`
 
 - **`template`** - your template file name
 - **`response`** - your map or sequence of template values
+
+### set_template_path
+
+Sets the path to where template files live. By default, this is just `templates` in the current directory.
+
+`include mvc/template.e`  
+`public procedure set_template_path( sequence path )`
+
+- **`path`** - path to where template files live
 
 ## Comment block
 
@@ -83,6 +105,8 @@ An item list loop
       </tr>
     {% end for %}
     </table>
+
+**Note:** map properies as show above (e.g. `item.name`) are not implemented yet. In the meantime, you can use functions as shown in [example2.ex](examples/example2.ex).
 
 ### extends statement
 
