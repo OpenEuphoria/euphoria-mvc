@@ -13,12 +13,12 @@
     </tr>
     {% for user in user_list %}
     <tr>
-        <td>{{ id(user) }}</td>
-        <td>{{ first_name(user) }}</td>
-        <td>{{ last_name(user) }}</td>
-        <td>{{ email_address(user) }}</td>
-        <td>{{ job_title(user) }}</td>
-        <td>{{ ip_address(user) }}</td>
+        <td>{{ user.id }}</td>
+        <td>{{ user.first_name }}</td>
+        <td>{{ user.last_name }}</td>
+        <td>{{ user.email_address }}</td>
+        <td>{{ user.job_title }}</td>
+        <td>{{ user.ip_address }}</td>
     </tr>
     {% end for %}
 </table>

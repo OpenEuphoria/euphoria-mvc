@@ -54,6 +54,8 @@ An expression block is any value enclosed in `{{ .. }}` tags.
 
 Expressions can be a variable name, a function call, or a literal value.
 
+Map properties can be retrieved using dot notation, e.g. `item.property`.
+
 ## Statement blocks
 
 Statement blocks are enclosed in `{% .. %}` tags.
@@ -105,8 +107,6 @@ An item list loop
       </tr>
     {% end for %}
     </table>
-
-**Note:** map properies as show above (e.g. `item.name`) are not implemented yet. In the meantime, you can use functions as shown in [example2.ex](examples/example2.ex).
 
 ### extends statement
 

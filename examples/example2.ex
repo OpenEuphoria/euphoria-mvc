@@ -101,36 +101,6 @@ sequence data = {
 	}
 }
 
-function get_id( object m )
-	return map:get( m, "id", 0 )
-end function
-add_function( "id", {"m"}, routine_id("get_id") )
-
-function first_name( object m )
-	return map:get( m, "first_name", "" )
-end function
-add_function( "first_name", {"m"} )
-
-function last_name( object m )
-	return map:get( m, "last_name", "" )
-end function
-add_function( "last_name", {"m"} )
-
-function email_address( object m )
-	return map:get( m, "email_address", "" )
-end function
-add_function( "email_address", {"m"} )
-
-function job_title( object m )
-	return map:get( m, "job_title", "" )
-end function
-add_function( "job_title", {"m"} )
-
-function ip_address( object m )
-	return map:get( m, "ip_address", "" )
-end function
-add_function( "ip_address", {"m"} )
-
 procedure main()
 
 	sequence user_list = {}
