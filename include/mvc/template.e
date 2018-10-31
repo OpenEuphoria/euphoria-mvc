@@ -113,6 +113,26 @@ public function call_funcion( sequence func_name, sequence values = {} )
 end function
 
 --
+-- Built-in functions
+--
+
+--
+-- equal()
+--
+function _equal( object a, object b )
+    return equal( a, b )
+end function
+add_function( "equal", {"a","b"}, routine_id("_equal") )
+
+--
+-- not_equal()
+--
+function _not_equal( object a, object b )
+    return not equal( a, b )
+end function
+add_function( "not_equal", {"a","b"}, routine_id("_not_equal") )
+
+--
 -- Template token lexer.
 --
 
@@ -279,7 +299,6 @@ public function parse_value( sequence data, object response )
 
 	else
 		-- parse and return a literal value
-
 		return defaulted_value( data, 0 )
 
 	end if
