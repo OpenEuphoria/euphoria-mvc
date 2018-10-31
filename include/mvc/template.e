@@ -10,6 +10,7 @@ include std/map.e
 include std/pretty.e
 include std/regex.e
 include std/search.e
+include std/sequence.e
 include std/text.e
 include std/types.e
 include std/utils.e
@@ -260,7 +261,7 @@ public function token_parser( sequence tokens, integer start = 1, sequence exit_
 	return {tree,i}
 end function
 
-constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]*)$` )
+constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9\.]*[^\.])$` )
 constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]*)\((.+)\)$` )
 
 --
@@ -274,6 +275,11 @@ public function parse_value( sequence data, object response )
 		sequence matches = regex:matches( re_variable, data )
 		sequence var_name = matches[2]
 
+		if find( '.', var_name ) then
+			sequence var_list = stdseq:split( var_name, '.' )
+			return map:nested_get( response, var_list )
+		end if
+
 		return map:get( response, var_name )
 
 	elsif regex:is_match( re_function, data ) then
@@ -283,19 +289,13 @@ public function parse_value( sequence data, object response )
 		sequence func_name = matches[2]
 		sequence func_params = matches[3]
 
-		integer func_id = map:get( response, func_name, -1 )
-
-		if func_id = -1 then
-			return 0
-		end if
-
 		func_params = keyvalues( func_params )
 
 		for i = 1 to length( func_params ) do
 			func_params[i] = parse_value( func_params[i][2], response )
 		end for
 
-		return call_func( func_id, func_params )
+		return call_funcion( func_name, func_params )
 
 	else
 		-- parse and return a literal value

@@ -5,7 +5,7 @@
     <!DOCTYPE html>
     <html>
     <head>
-      <title>{{title}</title>
+      <title>{{title}}</title>
     </head>
     <body>
       <h1>{{title}}</h1>
@@ -14,13 +14,35 @@
 
 ## Template routines
 
+### add_function
+
+Add a function that can be called from an expression.
+
+`include mvc/template.e`  
+`add_function( sequence func_name, sequence params, integer func_id )`
+
+- **`func_name`** - name of the function to add
+- **`params`** - list of parameter names
+- **`func_id`** - the routine_id() of the function
+
 ### render_template
+
+Render a template with the given response object.
 
 `include mvc/template.e`  
 `public function render_template( sequence template, object response )`
 
 - **`template`** - your template file name
 - **`response`** - your map or sequence of template values
+
+### set_template_path
+
+Sets the path to where template files live. By default, this is just `templates` in the current directory.
+
+`include mvc/template.e`  
+`public procedure set_template_path( sequence path )`
+
+- **`path`** - path to where template files live
 
 ## Comment block
 
@@ -31,6 +53,8 @@ A comment is any text enclosed in `{# .. #}` tags.
 An expression block is any value enclosed in `{{ .. }}` tags.
 
 Expressions can be a variable name, a function call, or a literal value.
+
+Map properties can be retrieved using dot notation, e.g. `item.property`.
 
 ## Statement blocks
 
