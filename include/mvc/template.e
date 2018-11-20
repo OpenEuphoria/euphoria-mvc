@@ -16,7 +16,6 @@ include std/types.e
 include std/utils.e
 
 constant NULL = 0
-constant EOL2 = EOL & EOL
 
 --
 -- Token Management
@@ -74,7 +73,13 @@ $
 -- Global template management.
 --
 
-sequence template_path = current_dir() & SLASH & "templates"
+--sequence template_path = current_dir() & SLASH & "templates"
+
+object template_path = getenv( "TEMPLATE_PATH" )
+
+if atom( template_path ) then
+	template_path = current_dir() & SLASH & "templates"
+end if
 
 --
 -- Set the global template path.
@@ -93,7 +98,9 @@ map m_functions = map:new()
 -- Register a global function.
 --
 public procedure add_function( sequence func_name, sequence params = {}, integer func_id = routine_id(func_name) )
+
 	map:put( m_functions, func_name, {params,func_id} )
+
 end procedure
 
 --
@@ -289,7 +296,7 @@ public function parse_value( sequence data, object response )
 		sequence func_name = matches[2]
 		sequence func_params = matches[3]
 
-		func_params = keyvalues( func_params )
+		func_params = keyvalues( func_params, ",", "=", "\"" )
 
 		for i = 1 to length( func_params ) do
 			func_params[i] = parse_value( func_params[i][2], response )
@@ -298,6 +305,10 @@ public function parse_value( sequence data, object response )
 		return call_funcion( func_name, func_params )
 
 	else
+		if search:begins( "'", data ) and search:ends( "'", data ) then
+			data = '"' & data[2..$-1] & '"'
+		end if
+
 		-- parse and return a literal value
 		return defaulted_value( data, 0 )
 
@@ -312,11 +323,6 @@ end function
 public function render_fragment( sequence tree, integer i, object response )
 
 	sequence data = tree[i][TDATA]
-
-	-- collapse multiple line breaks
-	while match( EOL2, data ) do
-		data = match_replace( EOL2, data, EOL )
-	end while
 
 	return {data,i+1}
 end function
