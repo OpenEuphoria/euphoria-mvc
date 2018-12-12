@@ -14,7 +14,7 @@ Easily store and fetch Euphoria data via object-relation mapping (ORM).
 
 ### Templates
 
-Build you views in simple HTML and then easily render your models to the page.
+Build your views in simple HTML and then easily render your models to the page.
 
 ### Routing
 

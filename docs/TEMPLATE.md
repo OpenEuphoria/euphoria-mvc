@@ -12,55 +12,25 @@
     </body>
     </html>
 
-## Template routines
+## Concepts
 
-### add_function
+### Comments
 
-Add a function that can be called from an expression.
+A **comment** is any text enclosed in `{# .. #}` tags.
 
-`include mvc/template.e`  
-`add_function( sequence func_name, sequence params, integer func_id )`
+### Expressions
 
-- **`func_name`** - name of the function to add
-- **`params`** - list of parameter names
-- **`func_id`** - the routine_id() of the function
-
-### render_template
-
-Render a template with the given response object.
-
-`include mvc/template.e`  
-`public function render_template( sequence template, object response )`
-
-- **`template`** - your template file name
-- **`response`** - your map or sequence of template values
-
-### set_template_path
-
-Sets the path to where template files live. By default, this is just `templates` in the current directory.
-
-`include mvc/template.e`  
-`public procedure set_template_path( sequence path )`
-
-- **`path`** - path to where template files live
-
-## Comment block
-
-A comment is any text enclosed in `{# .. #}` tags.
-
-## Expression block
-
-An expression block is any value enclosed in `{{ .. }}` tags.
+An **expression** is any value enclosed in `{{ .. }}` tags.
 
 Expressions can be a variable name, a function call, or a literal value.
 
 Map properties can be retrieved using dot notation, e.g. `item.property`.
 
-## Statement blocks
+### Statements
 
-Statement blocks are enclosed in `{% .. %}` tags.
+A **statement** is one of the following enclosed in `{% .. %}` tags.
 
-### if statement
+**if**
 
     {% if expression %}
     <p>content if true</p>
@@ -70,9 +40,7 @@ Statement blocks are enclosed in `{% .. %}` tags.
     <p>content if false</p>
     {% end if %}
 
-### for statement
-
-A couting loop
+**for _expression_ to _expresion_**
 
     <ul>
     {% for i = 1 to 10 %}
@@ -80,7 +48,7 @@ A couting loop
     {% end for %}
     </ul>
 
-A couting loop with steps
+**for _expression_ to _expression_ by _expression_**
 
     <ul>
     {% for i = 1 to 10 by 2 %}
@@ -88,7 +56,7 @@ A couting loop with steps
     {% end for %}
     </ul>
 
-An item list loop
+**for _variable_ in _expression_**
 
     <table>
       <tr>
@@ -108,24 +76,72 @@ An item list loop
     {% end for %}
     </table>
 
-### extends statement
+**extends**
 
 The extends statement allows for parent/child relationships between templates. You can define a single parent "layout" template, and then *extend* that template in all your other templates.
 
-### block statement
+**block**
 
-Blocks are named sections used between templates. Blocks in your layout template shoudld be empty, as they will be replaced by matching blocks from the original template.
+Blocks are named sections used between templates. Blocks in your layout template shoudld be empty, as they will be replaced by matching blocks from the primary template.
 
-**Layout template**
+If this is your layout:
 
-    <section name="content">
-    {% block content %}{% end block %}
-    </section>
+    <body>
+      <section name="content">
+      {% block content %}{% end block %}
+      </section>
+    </body>
 
-**Orignal template**
+And this is your primary template:
 
     {% extends layout.html %}
     {% block content %}
-    <p>This is where my content goes!</p>
+        <p>This is where my content goes!</p>
     {% end block %}
+
+Then your rendered template will look like this:
+
+    <body>
+      <section name="content">
+        <p>This is where my content goes!</p>
+      </section>
+    </body>
+
+## Template routines
+
+### add_function
+
+`include mvc/template.e`  
+`add_function( sequence func_name, sequence params, integer func_id )`
+
+Add a function that can be called from an **expression**.
+
+**Parameters**
+
+- **`func_name`** - name of the function to add
+- **`params`** - list of parameter names
+- **`func_id`** - the routine_id() of the function
+
+### render_template
+
+`include mvc/template.e`  
+`public function render_template( sequence template, object response )`
+
+Render a template with the given response object.
+
+**Parameters**
+
+- **`template`** - your template file name
+- **`response`** - your map or sequence of template values
+
+### set_template_path
+
+`include mvc/template.e`  
+`public procedure set_template_path( sequence path )`
+
+Sets the path to where template files live. By default, this is just `templates` in the current directory.
+
+**Parameters**
+
+- **`path`** - path to where template files live
 

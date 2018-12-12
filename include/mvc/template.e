@@ -73,8 +73,6 @@ $
 -- Global template management.
 --
 
---sequence template_path = current_dir() & SLASH & "templates"
-
 object template_path = getenv( "TEMPLATE_PATH" )
 
 if atom( template_path ) then
@@ -94,28 +92,54 @@ end procedure
 
 map m_functions = map:new()
 
+enum
+	FUNC_PARAMS,
+	FUNC_DEFAULT,
+	FUNC_ID
+
+type default_param( object x )
+	return sequence( x )
+	   and length( x ) = 2
+	   and string( x[1] )
+	   and object( x[2] )
+end type
+
 --
 -- Register a global function.
 --
 public procedure add_function( sequence func_name, sequence params = {}, integer func_id = routine_id(func_name) )
 
-	map:put( m_functions, func_name, {params,func_id} )
+    if func_id = -1 then
+        error:crash( "function '%s' not found", {func_name} )
+    end if
+
+    map:put( m_functions, func_name, {params,func_id} )
 
 end procedure
 
 --
 -- Call a global function.
 --
-public function call_funcion( sequence func_name, sequence values = {} )
+public function call_function( sequence func_name, sequence values = {} )
 
 	sequence params
 	integer func_id
 
 	{params,func_id} = map:get( m_functions, func_name, {{},-1} )
 
-	if func_id = -1 or length(params) != length(values) then
-		return 0
+	if func_id = -1 then
+		error:crash( "function '%s' not found", {func_name} )
 	end if
+
+	integer start = length( values ) + 1
+	integer stop = length( params )
+
+	for i = start to stop do
+		if not default_param( params[i] ) then
+			error:crash( "function '%s' does not provide a default value for param '%s'", {func_name,params[i]} )
+		end if
+		values = append( values, params[i][2] )
+	end for
 
 	return call_func( func_id, values )
 end function
@@ -141,6 +165,14 @@ end function
 add_function( "not_equal", {"a","b"}, routine_id("_not_equal") )
 
 --
+-- length()
+--
+function _length( object x )
+	return length( x )
+end function
+add_function( "length", {"x"}, routine_id("_length") )
+
+--
 -- Template token lexer.
 --
 
@@ -160,8 +192,14 @@ public function token_lexer( sequence text )
 	integer start, stop
 	object ttype, tdata, ttemp
 
-	sequence matches = regex:all_matches(
+	object matches = regex:all_matches(
 		re_tokens, text, 1, STRING_OFFSETS )
+
+	if atom( matches ) then
+		matches = {{
+			{text,1,length(text)}
+		}}
+	end if
 
 	for i = 1 to length( matches ) do
 		match = matches[i][1]
@@ -269,7 +307,7 @@ public function token_parser( sequence tokens, integer start = 1, sequence exit_
 end function
 
 constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9\.]*[^\.])$` )
-constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]*)\((.+)\)$` )
+constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]*)\((.*)\)$` )
 
 --
 -- Parse a variable or function or literal value.
@@ -287,7 +325,9 @@ public function parse_value( sequence data, object response )
 			return map:nested_get( response, var_list )
 		end if
 
-		return map:get( response, var_name )
+		if map:has( response, var_name ) then
+            return map:get( response, var_name )
+        end if
 
 	elsif regex:is_match( re_function, data ) then
 		-- parse and call a function, and return its value
@@ -302,19 +342,20 @@ public function parse_value( sequence data, object response )
 			func_params[i] = parse_value( func_params[i][2], response )
 		end for
 
-		return call_funcion( func_name, func_params )
+		return call_function( func_name, func_params )
 
 	else
+		-- parse and return a literal value
+
 		if search:begins( "'", data ) and search:ends( "'", data ) then
 			data = '"' & data[2..$-1] & '"'
 		end if
 
-		-- parse and return a literal value
-		return defaulted_value( data, 0 )
+        return defaulted_value( data, 0 )
 
 	end if
 
-	return 0
+	return ""
 end function
 
 --
@@ -355,17 +396,18 @@ public function render_if( sequence tree, integer i, object response )
 			case T_IF, T_ELSIF then
 
 				object value = parse_value( tree[i][TDATA], response )
+
 				if not equal( value, 0 ) then
-
-					{output,?} = render_block( tree, i, response )
+					{output,i} = render_block( tree, i, response )
 					exit
-
 				end if
-
 
 			case T_ELSE then
 
-				{output,?} = render_block( tree, i, response )
+				{output,i} = render_block( tree, i, response )
+				exit
+
+			case else
 				exit
 
 		end switch
@@ -577,34 +619,21 @@ public function extend_template( sequence filename, sequence tree )
 end function
 
 --
--- Render a template.
+-- Parse template text.
 --
-public function render_template( sequence filename, object response = {} )
-
-	if not search:begins( template_path & SLASH, filename ) then
-		filename = template_path & SLASH & filename
-	end if
-
-	object text = read_file( filename )
-	if atom( text ) then
-		error:crash( "could not read template: %s", {filename} )
-	end if
+public function parse_template( sequence text, object response = {} )
 
 	sequence tokens = token_lexer( text )
 	sequence tree = token_parser( tokens )
-
-	delete( tokens )
-	delete( text )
 
 	for i = 1 to length( tree ) do
 		-- look for a master template
 
 		if tree[i][TTYPE] = T_EXTENDS then
-
-			filename = tree[i][TDATA]
+			sequence filename = tree[i][TDATA]
 			tree = extend_template( filename, tree )
-			exit
 
+			exit
 		end if
 
 	end for
@@ -630,3 +659,22 @@ public function render_template( sequence filename, object response = {} )
 
 	return output
 end function
+
+--
+-- Render a template.
+--
+public function render_template( sequence filename, object response = {} )
+
+	if not search:begins( template_path & SLASH, filename ) then
+		filename = template_path & SLASH & filename
+	end if
+
+	object text = read_file( filename )
+
+	if atom( text ) then
+		error:crash( "could not read template: %s", {filename} )
+	end if
+
+	return parse_template( text, response )
+end function
+

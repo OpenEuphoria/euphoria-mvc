@@ -2,6 +2,7 @@
 namespace app
 
 include std/convert.e
+include std/error.e
 include std/map.e
 include std/io.e
 include std/pretty.e
@@ -10,7 +11,12 @@ include std/search.e
 include std/sequence.e
 include std/net/url.e
 include std/text.e
+
 include mvc/template.e
+
+--
+-- Route Parsing
+--
 
 -- variable name only
 constant re_varonly = regex:new( `^<([_a-zA-Z][_a-zA-Z0-9]*)>$` )
@@ -25,6 +31,10 @@ map:put( m_regex, "integer", regex:new(`([-]?[0-9]+)`) )
 map:put( m_regex, "string",  regex:new(`([\w\d\.\/]+)`) )
 map:put( m_regex, "object",  regex:new(`([^\s\/]+)`) )
 
+--
+-- Route Lookup
+--
+
 -- name -> pattern lookup
 map m_names = map:new()
 
@@ -33,6 +43,10 @@ map m_routes = map:new()
 
 -- name -> value headers
 map m_headers = map:new()
+
+--
+-- HTTP Status Codes
+--
 
 -- status -> description
 map m_status = map:new_from_kvpairs({
@@ -104,60 +118,151 @@ map m_status = map:new_from_kvpairs({
 	{ 511, "Network Authentication Required" }
 })
 
+--
+-- Error Page Template
+--
+
+constant ERROR_PAGE = """
+<!DOCTYPE html>
+<html>
+<head>
+  <title>%s</title>
+</head>
+<body>
+  <h1>%s</h1>
+  <p>%s</p>
+  <hr>
+  <p>%s</p>
+  </body>
+</html>
+
+"""
+
+--
+-- Better environment variables
+--
+
+public enum
+    AS_STRING,
+    AS_INTEGER,
+    AS_NUMBER
+
+function as_default( integer as_type )
+
+    if as_type = AS_STRING then
+        return ""
+    end if
+
+    return 0
+end function
+
+--
+-- Look up an environment variable and optionally convert it to another type.
+--
+public function getenv( sequence name, integer as_type = AS_STRING, object default = as_default(as_type) )
+
+    object value = eu:getenv( name )
+
+    if atom( value ) then
+        return default
+    end if
+
+    if as_type = AS_INTEGER then
+        value = to_integer( value )
+
+    elsif as_type = AS_NUMBER then
+        value = to_number( value )
+
+    end if
+
+    return value
+end function
+
+--
+-- Return TRUE if an item looks like a variable.
+--
+public function is_variable( sequence item )
+    return regex:is_match( re_varonly, item )
+        or regex:is_match( re_vartype, item )
+end function
+
+--
+-- Parse a variable and return its name and type.
+--
+public function parse_variable( sequence item )
+
+    sequence var_name = ""
+    sequence var_type = ""
+
+    if regex:is_match( re_varonly, item ) then
+
+        sequence matches = regex:matches( re_varonly, item )
+
+        var_name = matches[2]
+        var_type = "object"
+
+    elsif regex:is_match( re_vartype, item ) then
+
+        sequence matches = regex:matches( re_vartype, item )
+
+        var_name = matches[2]
+        var_type = matches[3]
+
+    end if
+
+    return {var_name,var_type}
+end function
+
 enum
     ROUTE_PATH,
     ROUTE_NAME,
     ROUTE_VARS,
     ROUTE_RID
 
-public function getenv( sequence name, sequence default = "" )
-
-    object value = eu:getenv( name )
-
-    if atom( value ) then
-        value = default
-    end if
-
-    return value
-end function
-
-public function is_variable( sequence item )
-    return regex:is_match( re_varonly, item )
-        or regex:is_match( re_vartype, item )
-end function
-
-public function parse_variable( sequence item )
-
-    if regex:is_match( re_varonly, item ) then
-
-        sequence matches = regex:matches( re_varonly, item )
-
-        return {matches[2],"object"}
-
-    elsif regex:is_match( re_vartype, item ) then
-
-        sequence matches = regex:matches( re_vartype, item )
-
-        return {matches[2],matches[3]}
-
-    end if
-
-    return {"",""}
-end function
-
-public function url_for( sequence name )
+--
+-- Build a URL from a route using optional response object.
+--
+public function url_for( sequence name, object response = {} )
 
 	sequence default = "#" & name
 
-	sequence pattern = map:get( m_names, name, "" )
+	regex pattern = map:get( m_names, name, "" )
 	if length( pattern ) = 0 then return default end if
 
 	sequence data = map:get( m_routes, pattern, {} )
 	if length( data ) = 0 then return default end if
 
-	return data[ROUTE_PATH]
+	sequence path = data[ROUTE_PATH]
+
+	if map( response ) then
+
+	    sequence parts = stdseq:split( path[2..$], "/" )
+		sequence varname, vartype
+
+	    for i = 1 to length( parts ) do
+    	    if is_variable( parts[i] ) then
+
+        	    {varname,vartype} = parse_variable( parts[i] )
+
+            	if length( varname ) and length( vartype ) then
+					object value = map:get( response, varname, 0 )
+					if atom( value ) then value = sprint( value ) end if
+					parts[i] = value
+    	        end if
+
+        	end if
+	    end for
+
+		path = "/" & stdseq:join( parts, "/" )
+
+	end if
+
+	return path
 end function
 
+--
+-- Set an outgoing header value.
+--
 public procedure header( sequence name, object value, object data = {} )
 
 	if atom( value ) then value = sprint( value ) end if
@@ -167,18 +272,60 @@ public procedure header( sequence name, object value, object data = {} )
 
 end procedure
 
-public function response_code( integer code, sequence desc = "" )
+--
+-- Return an HTTP redirect code and a link in case that doesn't work.
+--
+public function redirect( sequence url, integer code = 302 )
 
-	if length( desc ) = 0 then
-		desc = map:get( m_status, code, desc )
-	end if
+	sequence message = sprintf( `Please <a href="%s">click here</a> if you are not automatically redirected.`, {url} )
 
-	header( "Status", "%d %s", {code,desc} )
+	header( "Location", "%s", {url} )
 
-	return ""
+	return response_code( code, "Redirect", message )
 end function
 
-public procedure route( sequence path, sequence name, integer rid = routine_id(name) )
+--
+-- Return a response codw with optional status (the descrption) and message (displayed on the page).
+--
+public function response_code( integer code, sequence status = "", sequence message = "" )
+
+	if length( status ) = 0 then
+		status = map:get( m_status, code, "Undefined" )
+	end if
+
+	sequence title = sprintf( "%d %s", {code,status} )
+	sequence signature = getenv( "SERVER_SIGNATURE" )
+
+	header( "Status", "%d %s", {code,status} )
+
+	return sprintf( ERROR_PAGE, {title,status,message,signature} )
+end function
+
+--
+-- Convert a route path to a simple name.
+--
+public function get_route_name( sequence path )
+
+    if not search:begins( "/", path ) then
+        return ""
+    end if
+
+    sequence parts = stdseq:split( path[2..$], "/" )
+    if length( parts ) = 0 then
+        return ""
+    end if
+
+    return stdseq:retain_all( "_abcdefghijklmnopqrstuvwxyz", parts[1] )
+end function
+
+--
+-- Assign a route path to a handler function.
+--
+public procedure route( sequence path, sequence name = get_route_name(path), integer func_id = routine_id(name) )
+
+    if func_id = -1 then
+        error:crash( "route function '%s' not found", {name} )
+    end if
 
     if map:has( m_routes, path ) then
         return
@@ -211,85 +358,113 @@ public procedure route( sequence path, sequence name, integer rid = routine_id(n
     regex pattern = regex:new( "^/" & stdseq:join( parts, "/" ) & "$" )
 
 	map:put( m_names, name, pattern )
-    map:put( m_routes, pattern, {path,name,vars,rid} )
+    map:put( m_routes, pattern, {path,name,vars,func_id} )
 
 end procedure
 
-public procedure handle_request( sequence path_info, sequence query_string )
+--
+-- Parse an incoming request, call its handler, and return the response.
+--
+public function handle_request( sequence path_info, sequence request_method, sequence query_string )
 
-    object varname, vartype, vardata
+    integer route_found = 0
+	sequence response = ""
     sequence patterns = map:keys( m_routes )
-	object response = 0
 
     for i = 1 to length( patterns ) do
+        sequence pattern = patterns[i]
 
-        if regex:is_match( patterns[i], path_info ) then
-
-            sequence matches = regex:matches( patterns[i], path_info )
-            sequence item = map:get( m_routes, patterns[i] )
-
-            sequence vars = item[ROUTE_VARS]
-            integer rid = item[ROUTE_RID]
-
-            if length( vars ) != length( matches ) then
-                return
-            end if
-
-            map request = parse_querystring( query_string )
-
-            for j = 2 to length( vars ) do
-                {varname,vartype} = vars[j]
-
-                switch vartype do
-                    case "atom" then
-						vardata = to_number( matches[j] )
-                    case "integer" then
-						vardata = to_integer( matches[j] )
-                    case else
-						vardata = matches[j]
-                end switch
-
-                map:put( request, varname, vardata )
-
-            end for
-
-			header( "Content-Type", "text/html" )
-            response = call_func( rid, {request} )
-
-            exit
-
+        if not regex:is_match( pattern, path_info ) then
+            continue
         end if
+
+        object path, name, vars, func_id
+
+        {path,name,vars,func_id} = map:get( m_routes, pattern )
+        sequence matches = regex:matches( pattern, path_info )
+
+        if length( vars ) != length( matches ) then
+            error:crash( "route parameters do not match (%d != %d)",
+                { length(vars), length(matches) } )
+        end if
+
+        map request = parse_querystring( query_string )
+        map:put( request, "QUERY_STRING", query_string )
+        map:put( request, "REQUEST_METHOD", request_method )
+
+        object varname, vartype, vardata
+
+        for j = 2 to length( vars ) do
+            {varname,vartype} = vars[j]
+
+            switch vartype do
+                case "atom" then
+                    vardata = to_number( matches[j] )
+                case "integer" then
+                    vardata = to_integer( matches[j] )
+                case else
+                    vardata = matches[j]
+            end switch
+
+            map:put( request, varname, vardata )
+
+        end for
+
+        header( "Content-Type", "text/html" )
+        response = call_func( func_id, {request} )
+
+        route_found = 1
+        exit
 
     end for
 
-	if sequence( response ) then
-		header( "Content-Length", length(response) )
-	else
-		response = response_code( 404 )
+	if not route_found then
+		response = response_code( 404, "Not Found",
+			"The requested URL was not found on this server."
+		)
 	end if
 
-	sequence keys = map:keys( m_headers )
+	header( "Content-Length", length(response) )
 
-	for i = 1 to length( keys ) do
-		object value = map:get( m_headers, keys[i] )
-		printf( STDOUT, "%s: %s\r\n", {keys[i],value} )
-	end for
+	return response
+end function
 
-    printf( STDOUT, "\r\n" )
-
-	if sequence( response ) then
-	    printf( STDOUT, response )
-	end if
-
-end procedure
-
+--
+-- Entry point for the application. Performs basic setup and calls handle_request().
+--
 public procedure run()
 
-    sequence path_info = getenv( "PATH_INFO" )
-	sequence query_string = getenv( "QUERY_STRING" )
+    sequence path_info      = getenv( "PATH_INFO" )
+	sequence request_method = getenv( "REQUEST_METHOD" )
+	sequence query_string   = getenv( "QUERY_STRING" )
+	integer content_length  = getenv( "CONTENT_LENGTH", AS_INTEGER, 0 )
 
-	add_function( "url_for", {"name"} )
-	handle_request( path_info, query_string )
+	if equal( request_method, "POST" ) and content_length != 0 then
+		query_string = get_bytes( STDIN, content_length )
+	end if
+
+    add_function( "url_for", {
+        {"name",""},
+        {"response",0}
+    }, routine_id("url_for") )
+
+	sequence response = handle_request( path_info, request_method, query_string )
+	sequence headers = map:keys( m_headers )
+
+	for i = 1 to length( headers ) do
+
+        sequence header = headers[i]
+		object value = map:get( m_headers, header )
+
+		if atom( value ) then
+            value = sprint( value )
+        end if
+
+		printf( STDOUT, "%s: %s\r\n", {header,value} )
+
+	end for
+
+    puts( STDOUT, "\r\n" )
+    puts( STDOUT, response )
 
 end procedure
-
