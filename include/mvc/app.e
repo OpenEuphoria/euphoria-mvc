@@ -11,6 +11,8 @@ include std/search.e
 include std/sequence.e
 include std/net/url.e
 include std/text.e
+include std/types.e
+include std/utils.e
 
 include mvc/template.e
 
@@ -265,8 +267,16 @@ end function
 --
 public procedure header( sequence name, object value, object data = {} )
 
-	if atom( value ) then value = sprint( value ) end if
-	if not equal( data, {} ) then value = sprintf( value, data ) end if
+	if atom( value ) then
+        value = sprint( value )
+
+	elsif string( value ) then
+        value = sprintf( value, data )
+
+    elsif sequence_array( value ) and length( value ) = 1 then
+        value = map:get( m_headers, name, {} ) & value
+
+    end if
 
 	map:put( m_headers, name, value )
 
@@ -453,14 +463,16 @@ public procedure run()
 
 	for i = 1 to length( headers ) do
 
-        sequence header = headers[i]
-		object value = map:get( m_headers, header )
+		object value = map:get( m_headers, headers[i] )
 
-		if atom( value ) then
-            value = sprint( value )
-        end if
-
-		printf( STDOUT, "%s: %s\r\n", {header,value} )
+		if sequence_array( value ) then
+            for j = 1 to length( value ) do
+                printf( STDOUT, "%s: %s\r\n", {headers[i],value[j]} )
+            end for
+		else
+            if atom( value ) then value = sprint( value ) end if
+            printf( STDOUT, "%s: %s\r\n", {headers[i],value} )
+		end if
 
 	end for
 

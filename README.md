@@ -1,8 +1,16 @@
 # Euphoria MVC
 
-**Euphoria MVC** is a model-view-controller framework for [Euphoria](https://githubc.com/OpenEuphoria/Euphoria). Currently only the template parser is completed.
+**Euphoria MVC** is a model-view-controller framework for [Euphoria](https://githubc.com/OpenEuphoria/Euphoria). Currently the template parser and application router are working.
 
 ## Features
+
+### [Templates](docs/TEMPLATE.md)
+
+Build your views in HTML and then render your models to the page.
+
+### [Routing](docs/APP.md)
+
+Automatically route static or dynamic paths to handler functions.
 
 ### Database
 
@@ -11,14 +19,6 @@ Execute queries on any (well, most) database systems from one codebase.
 ### Models
 
 Easily store and fetch Euphoria data via object-relation mapping (ORM).
-
-### Templates
-
-Build your views in simple HTML and then easily render your models to the page.
-
-### Routing
-
-Automatically route paths to functions.
 
 ## Getting Started
 
@@ -97,4 +97,3 @@ Save this as `index.esp`.
 ### Run your application
 
 Open your web browser to your application URL.
-

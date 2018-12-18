@@ -322,7 +322,7 @@ public function parse_value( sequence data, object response )
 
 		if find( '.', var_name ) then
 			sequence var_list = stdseq:split( var_name, '.' )
-			return map:nested_get( response, var_list )
+			return map:nested_get( response, var_list, "" )
 		end if
 
 		if map:has( response, var_name ) then

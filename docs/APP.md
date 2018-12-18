@@ -79,7 +79,7 @@ Then any URL matching that structure will parse out the **`username`** and **`pr
 
 ### getenv
 
-`include mvc/app.e`__
+`include mvc/app.e`  
 `public function getenv( sequence name, integer as_type = AS_STRING, object default = as_default(as_type) )`
 
 An improved version of the built-in **`getenv()`**. You can automatically return a number instead of a string.
@@ -95,10 +95,12 @@ An improved version of the built-in **`getenv()`**. You can automatically return
 
 ### header
 
-`include mvc/app.e`__
+`include mvc/app.e`  
 `public procedure header( sequence name, object value, object data = {} )`
 
 Sets an outgoing header value. Headers must be set before your **handler** function returns its **response** data.
+
+You can set multiple headers by setting the value as sequence of one or more strings. This is used internally by [set_cookie()](COOKIE.md).
 
 - **`name`** - the name of the header
 - **`value`** - the value of the header
@@ -106,7 +108,7 @@ Sets an outgoing header value. Headers must be set before your **handler** funct
 
 ### redirect
 
-`include mvc/app.e`__
+`include mvc/app.e`  
 `public function redirect( sequence url, integer code = 302 )`
 
 Returns an HTTP redirect code to send the browser to the provided URL. Also puts a link on the page in case the redirect does not work. We recommend using **`url_for()`** for this.
@@ -129,7 +131,7 @@ Assign a route path to a handler function. The **`route()`** function will autom
 
 ### run
 
-`include mvc/app.e`__
+`include mvc/app.e`  
 `public procedure run()`
 
 Entry point for the application. Call this routine after you've set up all your routes.
@@ -140,7 +142,7 @@ Entry point for the application. Call this routine after you've set up all your 
 
 ### url_for
 
-`include mvc/app.e`__
+`include mvc/app.e`  
 `public function url_for( sequence name, object response = {} )`
 
 Builds a URL from a route using the optional response object.
