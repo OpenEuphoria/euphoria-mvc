@@ -16,7 +16,7 @@ Build your views in HTML and then render your data to the page.
 
 Automatically route static or dynamic paths to handler functions.
 
-### Database
+### [Database](docs/DATABASE.md)
 
 Execute queries on any (well, most) database systems from one codebase.
 
@@ -24,6 +24,18 @@ Execute queries on any (well, most) database systems from one codebase.
 
 _(Coming soon!)_  
 Easily store and fetch Euphoria data via object-relation mapping (ORM).
+
+### [Configuration](docs/CONFIG.md)
+
+Load and store data in configuration files.
+
+### [Cookies](docs/COOKIE.md)
+
+Store snippits of data with your end users.
+
+### [Sessions](docs/SESSION.md)
+
+Store more data locally with minimal cookies.
 
 ## Getting Started
 
