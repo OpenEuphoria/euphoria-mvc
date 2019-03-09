@@ -1,12 +1,16 @@
 # Euphoria MVC
 
-**Euphoria MVC** is a model-view-controller framework for [Euphoria](https://githubc.com/OpenEuphoria/Euphoria). Currently the template parser and application router are working.
+**Euphoria MVC** is a model-view-controller framework for [Euphoria](https://githubc.com/OpenEuphoria/Euphoria).
+
+## Project status
+
+This project is in the very early stages of development. Things can and will break or change until we reach a stable release.
 
 ## Features
 
 ### [Templates](docs/TEMPLATE.md)
 
-Build your views in HTML and then render your models to the page.
+Build your views in HTML and then render your data to the page.
 
 ### [Routing](docs/APP.md)
 
@@ -18,6 +22,7 @@ Execute queries on any (well, most) database systems from one codebase.
 
 ### Models
 
+_(Coming soon!)_  
 Easily store and fetch Euphoria data via object-relation mapping (ORM).
 
 ## Getting Started
@@ -58,6 +63,18 @@ Tell Apache you want it to execute Euphoria scripts and use index.esp as the ind
     AddHandler cgi-script .esp
     Options +ExecCGI
     DirectoryIndex index.esp
+    
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^(.*)$ index.esp/$1 [L,NS]
+
+You can also add a block like this to keep snoopers out of certain files:
+
+    <Files ~ ".cfg$|.err$|.edb$">
+	    Deny from all
+    </Files>
+
+Although the ideal solution would be to store sensitive data outside of your web root.
 
 ### Write your template.
 
@@ -66,10 +83,11 @@ Save this as `templates/index.html`.
     <!DOCTYPE html>
     <html>
     <head>
-      <title>{{title}}</title>
+      <title>{{ title }}</title>
     </head>
     <body>
-      <h1>{{title}}</h1>
+      <h1>{{ title }}</h1>
+      <p>{{ message }}</p>
     </body>
     </html>
 
@@ -86,12 +104,16 @@ Save this as `index.esp`.
     function index( object request )
 
         map response = map:new()
-        map:put( response, "title", "Hello, world!" )
+        map:put( response, "title", "My First App" )
+        map:put( response, "message", "Hello, world!" )
 
         return render_template( "index.html", response )
     end function
-    app:route( "/index" )
-
+    app:route( "/", "index" )
+    
+    -- "/" is the URL path, "index" is the name of the route
+    -- route() will find the matching routine automatically
+    
     app:run()
 
 ### Run your application
