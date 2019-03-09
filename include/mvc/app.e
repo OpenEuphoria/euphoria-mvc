@@ -38,13 +38,13 @@ map:put( m_regex, "object",  regex:new(`([^\s\/]+)`) )
 --
 
 -- name -> pattern lookup
-map m_names = map:new()
+export map m_names = map:new()
 
 -- pattern -> data storage
-map m_routes = map:new()
+export map m_routes = map:new()
 
 -- name -> value headers
-map m_headers = map:new()
+export map m_headers = map:new()
 
 --
 -- HTTP Status Codes
@@ -181,6 +181,10 @@ public function getenv( sequence name, integer as_type = AS_STRING, object defau
 end function
 
 --
+-- Variables
+--
+
+--
 -- Return TRUE if an item looks like a variable.
 --
 public function is_variable( sequence item )
@@ -214,6 +218,30 @@ public function parse_variable( sequence item )
 
     return {var_name,var_type}
 end function
+
+--
+-- Set an outgoing header value.
+--
+public procedure header( sequence name, object value, object data = {} )
+
+	if atom( value ) then
+        value = sprint( value )
+
+	elsif string( value ) then
+        value = sprintf( value, data )
+
+    elsif sequence_array( value ) and length( value ) = 1 then
+        value = map:get( m_headers, name, {} ) & value
+
+    end if
+
+	map:put( m_headers, name, value )
+
+end procedure
+
+--
+-- Routing
+--
 
 enum
     ROUTE_PATH,
@@ -261,26 +289,6 @@ public function url_for( sequence name, object response = {} )
 
 	return path
 end function
-
---
--- Set an outgoing header value.
---
-public procedure header( sequence name, object value, object data = {} )
-
-	if atom( value ) then
-        value = sprint( value )
-
-	elsif string( value ) then
-        value = sprintf( value, data )
-
-    elsif sequence_array( value ) and length( value ) = 1 then
-        value = map:get( m_headers, name, {} ) & value
-
-    end if
-
-	map:put( m_headers, name, value )
-
-end procedure
 
 --
 -- Return an HTTP redirect code and a link in case that doesn't work.
@@ -373,6 +381,71 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
 end procedure
 
 --
+-- Hooks
+--
+
+enum
+	HOOK_NAME,
+	HOOK_LIST
+
+sequence m_hooks = {}
+
+public constant
+	HOOK_APP_START      = new_hook_type( "app_start"      ),
+	HOOK_APP_END        = new_hook_type( "app_end"        ),
+	HOOK_REQUEST_START  = new_hook_type( "request_start"  ),
+	HOOK_REQUEST_END    = new_hook_type( "request_end"    ),
+	HOOK_HEADERS_START  = new_hook_type( "headers_start"  ),
+	HOOK_HEADERS_END    = new_hook_type( "headers_end"    ),
+	HOOK_RESPONSE_START = new_hook_type( "response_start" ),
+	HOOK_RESPONSE_END   = new_hook_type( "response_end"   ),
+$
+
+--
+-- Add new hook type.
+--
+public function new_hook_type( sequence name )
+
+	sequence list = {}
+	m_hooks = append( m_hooks, {name,list} )
+
+	return length( m_hooks )
+end function
+
+--
+-- Insert a new hook.
+--
+public procedure insert_hook( integer hook_type, sequence func_name, integer func_id = routine_id(func_name) )
+	m_hooks[hook_type][HOOK_LIST] = append( m_hooks[hook_type][HOOK_LIST], {func_name,func_id} )
+end procedure
+
+--
+-- Run a list of hooks.
+--
+public function run_hooks( integer hook_type )
+
+	object func_name, func_id
+	integer exit_code = 0
+
+	sequence hook_name = m_hooks[hook_type][HOOK_NAME]
+	sequence hook_list = m_hooks[hook_type][HOOK_LIST]
+
+	for i = 1 to length( hook_list ) do
+		{func_name,func_id} = hook_list[i]
+
+		exit_code = call_func( func_id, {} )
+		if exit_code then exit end if
+
+	end for
+
+	return exit_code
+end function
+
+--
+-- Requests
+--
+
+--
 -- Parse an incoming request, call its handler, and return the response.
 --
 public function handle_request( sequence path_info, sequence request_method, sequence query_string )
@@ -380,6 +453,11 @@ public function handle_request( sequence path_info, sequence request_method, seq
     integer route_found = 0
 	sequence response = ""
     sequence patterns = map:keys( m_routes )
+
+	integer exit_code
+
+	exit_code = run_hooks( HOOK_REQUEST_START )
+	if exit_code then return "" end if
 
     for i = 1 to length( patterns ) do
         sequence pattern = patterns[i]
@@ -420,8 +498,14 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
         end for
 
+		exit_code = run_hooks( HOOK_RESPONSE_START )
+		if exit_code then return "" end if
+
         header( "Content-Type", "text/html" )
         response = call_func( func_id, {request} )
+
+		exit_code = run_hooks( HOOK_RESPONSE_END )
+		if exit_code then return "" end if
 
         route_found = 1
         exit
@@ -436,6 +520,9 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
 	header( "Content-Length", length(response) )
 
+	exit_code = run_hooks( HOOK_REQUEST_END )
+	if exit_code then return "" end if
+
 	return response
 end function
 
@@ -443,6 +530,11 @@ end function
 -- Entry point for the application. Performs basic setup and calls handle_request().
 --
 public procedure run()
+
+	integer exit_code
+
+	exit_code = run_hooks( HOOK_APP_START )
+	if exit_code then return end if
 
     sequence path_info      = getenv( "PATH_INFO" )
 	sequence request_method = getenv( "REQUEST_METHOD" )
@@ -454,11 +546,15 @@ public procedure run()
 	end if
 
     add_function( "url_for", {
-        {"name",""},
+        {"name"},
         {"response",0}
     }, routine_id("url_for") )
 
 	sequence response = handle_request( path_info, request_method, query_string )
+
+	exit_code = run_hooks( HOOK_HEADERS_START )
+	if exit_code then return end if
+
 	sequence headers = map:keys( m_headers )
 
 	for i = 1 to length( headers ) do
@@ -476,7 +572,13 @@ public procedure run()
 
 	end for
 
+	exit_code = run_hooks( HOOK_HEADERS_END )
+	if exit_code then return end if
+
     puts( STDOUT, "\r\n" )
     puts( STDOUT, response )
+
+	exit_code = run_hooks( HOOK_APP_END )
+	if exit_code then return end if
 
 end procedure

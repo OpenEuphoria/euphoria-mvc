@@ -173,6 +173,14 @@ end function
 add_function( "length", {"x"}, routine_id("_length") )
 
 --
+-- not()
+--
+function _not( object x )
+	return equal( x, 0 )
+end function
+add_function( "not", {"x"}, routine_id("_not") )
+
+--
 -- Template token lexer.
 --
 
@@ -196,9 +204,9 @@ public function token_lexer( sequence text )
 		re_tokens, text, 1, STRING_OFFSETS )
 
 	if atom( matches ) then
-		matches = {{
-			{text,1,length(text)}
-		}}
+		return {
+			{ T_FRAGMENT, text, {} }
+		}
 	end if
 
 	for i = 1 to length( matches ) do
@@ -631,7 +639,7 @@ public function parse_template( sequence text, object response = {} )
 
 		if tree[i][TTYPE] = T_EXTENDS then
 			sequence filename = tree[i][TDATA]
-			tree = extend_template( filename, tree )
+			tree = extend_template( dequote(filename), tree )
 
 			exit
 		end if
