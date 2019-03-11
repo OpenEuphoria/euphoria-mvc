@@ -124,21 +124,37 @@ map m_status = map:new_from_kvpairs({
 -- Error Page Template
 --
 
-constant ERROR_PAGE = """
+constant DEFAULT_ERROR_PAGE = """
 <!DOCTYPE html>
 <html>
 <head>
-  <title>%s</title>
+  <title>{{ title }}</title>
 </head>
 <body>
-  <h1>%s</h1>
-  <p>%s</p>
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
   <hr>
-  <p>%s</p>
+  <p>{{ signature }}</p>
   </body>
 </html>
 
 """
+
+map m_error_page = map:new()
+
+--
+-- Returns the error page template defined for the response code.
+--
+public function get_error_page( integer code )
+	return map:get( m_error_page, code, DEFAULT_ERROR_PAGE )
+end function
+
+--
+-- Set the error page template defined for the response code.
+--
+public procedure set_error_page( integer code, sequence template )
+	map:put( m_error_page, code, template )
+end procedure
 
 --
 -- Better environment variables
@@ -306,17 +322,25 @@ end function
 -- Return a response codw with optional status (the descrption) and message (displayed on the page).
 --
 public function response_code( integer code, sequence status = "", sequence message = "" )
-
+	
 	if length( status ) = 0 then
 		status = map:get( m_status, code, "Undefined" )
 	end if
-
+	
 	sequence title = sprintf( "%d %s", {code,status} )
 	sequence signature = getenv( "SERVER_SIGNATURE" )
-
+	
+	sequence template = get_error_page( code )
+	
+	object response = map:new()
+	map:put( response, "title",     title )
+	map:put( response, "status",    status )
+	map:put( response, "message",   message )
+	map:put( response, "signature", signature )
+	
 	header( "Status", "%d %s", {code,status} )
-
-	return sprintf( ERROR_PAGE, {title,status,message,signature} )
+	
+	return parse_template( template, response )
 end function
 
 --
