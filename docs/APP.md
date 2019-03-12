@@ -69,11 +69,11 @@ You can route a static path to your handler by just specifying the path. This is
 
 ### Dynamic routes
 
-You can also route dynamic paths that will accept variables and pass them to your **handler** function.
+You can also route dynamic paths that will accept variables and pass them to your **handler** function. If you wanted to handle the GitHub URL above, you could could specify the route as `/<username>/<project>`. Then any URL matching that structure will parse out the **`username`** and **`project`** variables and pass them to your **handler** via its **request** object. You can also require variables by a specific type using `<name:type>`. Valid types are `atom`, `integer`, `string`, and `object`.
 
-If you wanted to handle the GitHub URL above, you could could specify the route as `/<username>/<project>`.
+### Default route
 
-Then any URL matching that structure will parse out the **`username`** and **`project`** variables and pass them to your **handler** via its **request** object.
+By default, any route that isn't found results in a 404 error. You can override this behavior by providing a default route. Simply set the path to the route with "*" and the handler will be called if, any only if, all other defined routes have been exhausted. You can still return an error page using `response_code()`.
 
 ## Application routines
 

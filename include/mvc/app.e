@@ -322,24 +322,24 @@ end function
 -- Return a response codw with optional status (the descrption) and message (displayed on the page).
 --
 public function response_code( integer code, sequence status = "", sequence message = "" )
-	
+
 	if length( status ) = 0 then
 		status = map:get( m_status, code, "Undefined" )
 	end if
-	
+
 	sequence title = sprintf( "%d %s", {code,status} )
 	sequence signature = getenv( "SERVER_SIGNATURE" )
-	
+
 	sequence template = get_error_page( code )
-	
+
 	object response = map:new()
 	map:put( response, "title",     title )
 	map:put( response, "status",    status )
 	map:put( response, "message",   message )
 	map:put( response, "signature", signature )
-	
+
 	header( "Status", "%d %s", {code,status} )
-	
+
 	return parse_template( template, response )
 end function
 
@@ -348,8 +348,12 @@ end function
 --
 public function get_route_name( sequence path )
 
-    if not search:begins( "/", path ) then
+	if equal( "*", path ) then
+		return "default"
+
+    elsif not search:begins( "/", path ) then
         return ""
+
     end if
 
     sequence parts = stdseq:split( path[2..$], "/" )
@@ -369,12 +373,18 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
         error:crash( "route function '%s' not found", {name} )
     end if
 
-    if map:has( m_routes, path ) then
-        return
-    end if
+	if equal( "*", path ) then
+		regex pattern = regex:new( "^/.+$" )
+		map:put( m_names, name, pattern )
+		map:put( m_routes, pattern, {path,name,{},func_id} )
+		return
 
-    if not search:begins( "/", path ) then
+    elsif map:has( m_routes, path ) then
         return
+
+    elsif not search:begins( "/", path ) then
+        return
+
     end if
 
     sequence vars = {""}
@@ -470,11 +480,48 @@ end function
 --
 
 --
+-- Parse the path and query string for available variables.
+--
+public function parse_request( sequence vars, sequence matches, sequence path_info, sequence request_method, sequence query_string )
+
+    if length( vars ) != length( matches ) then
+        error:crash( "route parameters do not match (%d != %d)",
+            { length(vars), length(matches) } )
+    end if
+
+    map request = parse_querystring( query_string )
+    map:put( request, "PATH_INFO", path_info )
+    map:put( request, "REQUEST_METHOD", request_method )
+    map:put( request, "QUERY_STRING", query_string )
+
+    object varname, vartype, vardata
+
+    for j = 2 to length( vars ) do
+        {varname,vartype} = vars[j]
+
+        switch vartype do
+            case "atom" then
+                vardata = to_number( matches[j] )
+            case "integer" then
+                vardata = to_integer( matches[j] )
+            case else
+                vardata = matches[j]
+        end switch
+
+        map:put( request, varname, vardata )
+
+    end for
+
+    return request
+end function
+
+--
 -- Parse an incoming request, call its handler, and return the response.
 --
 public function handle_request( sequence path_info, sequence request_method, sequence query_string )
 
     integer route_found = 0
+	integer default_route = 0
 	sequence response = ""
     sequence patterns = map:keys( m_routes )
 
@@ -486,41 +533,21 @@ public function handle_request( sequence path_info, sequence request_method, seq
     for i = 1 to length( patterns ) do
         sequence pattern = patterns[i]
 
+        object path, name, vars, func_id
+        {path,name,vars,func_id} = map:get( m_routes, pattern )
+
+		if equal( "*", path ) then
+			default_route = i
+			continue
+		end if
+
         if not regex:is_match( pattern, path_info ) then
             continue
         end if
 
-        object path, name, vars, func_id
-
-        {path,name,vars,func_id} = map:get( m_routes, pattern )
         sequence matches = regex:matches( pattern, path_info )
-
-        if length( vars ) != length( matches ) then
-            error:crash( "route parameters do not match (%d != %d)",
-                { length(vars), length(matches) } )
-        end if
-
-        map request = parse_querystring( query_string )
-        map:put( request, "QUERY_STRING", query_string )
-        map:put( request, "REQUEST_METHOD", request_method )
-
-        object varname, vartype, vardata
-
-        for j = 2 to length( vars ) do
-            {varname,vartype} = vars[j]
-
-            switch vartype do
-                case "atom" then
-                    vardata = to_number( matches[j] )
-                case "integer" then
-                    vardata = to_integer( matches[j] )
-                case else
-                    vardata = matches[j]
-            end switch
-
-            map:put( request, varname, vardata )
-
-        end for
+        object request = parse_request( vars, matches,
+			path_info, request_method, query_string )
 
 		exit_code = run_hooks( HOOK_RESPONSE_START )
 		if exit_code then return "" end if
@@ -531,15 +558,40 @@ public function handle_request( sequence path_info, sequence request_method, seq
 		exit_code = run_hooks( HOOK_RESPONSE_END )
 		if exit_code then return "" end if
 
-        route_found = 1
+        route_found = i
         exit
 
     end for
 
 	if not route_found then
-		response = response_code( 404, "Not Found",
-			"The requested URL was not found on this server."
-		)
+
+		if default_route then
+
+			sequence pattern = patterns[default_route]
+
+	        object path, name, vars, func_id
+	        {path,name,vars,func_id} = map:get( m_routes, pattern )
+
+			object request = parse_request( {}, {},
+				path_info, request_method, query_string )
+
+			exit_code = run_hooks( HOOK_RESPONSE_START )
+			if exit_code then return "" end if
+
+	        header( "Content-Type", "text/html" )
+	        response = call_func( func_id, {request} )
+
+			exit_code = run_hooks( HOOK_RESPONSE_END )
+			if exit_code then return "" end if
+
+		else
+
+			response = response_code( 404, "Not Found",
+				"The requested URL was not found on this server."
+			)
+
+		end if
+
 	end if
 
 	header( "Content-Length", length(response) )

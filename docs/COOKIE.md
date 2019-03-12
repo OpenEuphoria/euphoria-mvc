@@ -17,7 +17,7 @@ Returns a sequence containing all of the cookies sent in the **request**.
 
 ### get_cookies
 
-`include mvc/cookie.e`__
+`include mvc/cookie.e`  
 `public function get_cookie( sequence name, object default = 0 )`
 
 Returns the value of a given cookie, or the specified default value.
@@ -29,7 +29,7 @@ Returns the value of a given cookie, or the specified default value.
 
 ### set_cookie
 
-`include mvc/cookie.`__
+`include mvc/cookie.`  
 `public procedure set_cookie( sequence name, object value = "", object expiry = "", object max_age = "",`  
 `    object domain = "", object path = "", object secure = "", object http_only = "", object same_site = "" )`
 
