@@ -176,7 +176,7 @@ add_function( "length", {"x"}, routine_id("_length") )
 -- not()
 --
 function _not( object x )
-	return equal( x, 0 )
+	return equal( x, 0 ) or equal( x, "" )
 end function
 add_function( "not", {"x"}, routine_id("_not") )
 
@@ -405,7 +405,7 @@ public function render_if( sequence tree, integer i, object response )
 
 				object value = parse_value( tree[i][TDATA], response )
 
-				if not equal( value, 0 ) then
+				if not equal( value, 0 ) and not equal( value, "" ) then
 					{output,i} = render_block( tree, i, response )
 					exit
 				end if
