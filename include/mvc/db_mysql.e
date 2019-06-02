@@ -36,26 +36,34 @@ procedure _disconnect( atom mysql )
 end procedure
 add_handler( MYSQL, DB_DISCONNECT, routine_id("_disconnect") )
 
-function _query( atom mysql, sequence stmt )
+function _query( atom mysql, sequence stmt, object params )
 
 --	sequence escape_stmt = mysql_real_escape_string( mysql, stmt )
 
+    if not equal( params, {} ) then
+        stmt = sprintf( stmt, params )
+    end if
+
 	if mysql_real_query( mysql, stmt ) then
-		return 0
+		return -1
 	end if
 
-	return mysql_store_result( mysql )
+	if search:begins( "SELECT ", stmt ) then
+        return mysql_store_result( mysql )
+    end if
+    
+    return 0
 end function
 add_handler( MYSQL, DB_QUERY, routine_id("_query") )
 
 function _fetch( atom mysql, atom result )
 
     sequence row = mysql_fetch_row( result )
-    
+
     if length( row ) = 0 then
         mysql_free_result( result )
     end if
-    
+
     return row
 end function
 add_handler( MYSQL, DB_FETCH, routine_id("_fetch") )

@@ -9,6 +9,7 @@ public enum
 -- handler ids
     DB_CONNECT,
     DB_DISCONNECT,
+    DB_TABLE_EXISTS,
     DB_QUERY,
     DB_FETCH,
 	DB_ERROR,
@@ -62,7 +63,7 @@ public function db_connect( sequence url )
     object proto = parts[1]
 
     integer proto_id = find( proto, protocols )
-    if proto_id = -1 then return 0 end if
+    if proto_id = 0 then return 0 end if
 
     integer rtn_id = handlers[proto_id][DB_CONNECT]
     if rtn_id = -1 then return 0 end if
@@ -109,7 +110,7 @@ end procedure
 --
 -- execute a query
 --
-public function db_query( sequence query, atom conn = current_conn )
+public function db_query( sequence query, object params = {}, atom conn = current_conn )
 
     integer proto_id = map:get( m_conn, conn, -1 )
     if proto_id = -1 then return 0 end if
@@ -117,7 +118,7 @@ public function db_query( sequence query, atom conn = current_conn )
     integer rtn_id = handlers[proto_id][DB_QUERY]
     if rtn_id = -1 then return 0 end if
 
-    atom result = call_func( rtn_id, {conn,query} )
+    atom result = call_func( rtn_id, {conn,query,params} )
 
     if result then
         current_result = result
