@@ -8,6 +8,7 @@ namespace mysql
 include std/dll.e
 include std/machine.e
 include std/error.e
+include std/map.e
 
 ifdef WINDOWS then
 	atom libmysql = open_dll( "libmysql.dll" )
@@ -326,6 +327,46 @@ public function mysql_fetch_row( atom result )
 
 		row_ptr += sizeof( C_POINTER )
 		len_ptr += sizeof( C_ULONG )
+
+	end for
+
+	return data
+end function
+
+public function mysql_fetch_map( atom result )
+
+	atom row = c_func( _mysql_fetch_row, {result} )
+	if row = NULL then return 0 end if
+
+	atom fields = c_func( _mysql_fetch_fields, {result} )
+	if fields = NULL then return 0 end if
+
+	atom lengths = c_func( _mysql_fetch_lengths, {result} )
+	if lengths = NULL then return 0 end if
+
+	atom num_fields = c_func( _mysql_num_fields, {result} )
+	map data = map:new()
+
+	atom row_ptr = row
+	atom len_ptr = lengths
+    atom field_ptr = fields
+
+	for i = 1 to num_fields do
+
+		sequence field = peek_field( field_ptr )
+		field = field[MYSQL_FIELD_NAME]
+
+		object value = peek_pointer( row_ptr )
+		if value != NULL then
+			atom len = peek4u( len_ptr )
+			value = peek({ value, len })
+		end if
+
+		map:put( data, field, value )
+
+		row_ptr += sizeof( C_POINTER )
+		len_ptr += sizeof( C_ULONG )
+		field_ptr += SIZEOF_MYSQL_FIELD
 
 	end for
 

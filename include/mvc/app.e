@@ -20,6 +20,9 @@ include mvc/template.e
 -- Route Parsing
 --
 
+-- current route
+sequence m_current_route
+
 -- variable name only
 constant re_varonly = regex:new( `^<([_a-zA-Z][_a-zA-Z0-9]*)>$` )
 
@@ -256,6 +259,21 @@ public procedure header( sequence name, object value, object data = {} )
 end procedure
 
 --
+-- Debugging
+--
+
+ifdef DEBUG then
+
+public function crash_handler( integer param )
+
+
+	return 0 and param
+end function
+crash_routine( routine_id("crash_handler") )
+
+end ifdef
+
+--
 -- Routing
 --
 
@@ -264,6 +282,18 @@ enum
     ROUTE_NAME,
     ROUTE_VARS,
     ROUTE_RID
+
+--
+-- Return the current route name.
+--
+public function get_current_route()
+
+	if object( m_current_route ) then
+		return m_current_route
+	end if
+
+	return ""
+end function
 
 --
 -- Build a URL from a route using optional response object.
@@ -408,6 +438,7 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
     end for
 
     regex pattern = regex:new( "^/" & stdseq:join( parts, "/" ) & "$" )
+	printf( 2, "pattern = '%s'\n", {pattern} )
 
 	map:put( m_names, name, pattern )
     map:put( m_routes, pattern, {path,name,vars,func_id} )
@@ -447,9 +478,16 @@ public function new_hook_type( sequence name )
 end function
 
 --
+-- Return a hook name.
+--
+public function get_hook_name( integer hook_type )
+	return m_hooks[hook_type][HOOK_NAME]
+end function
+
+--
 -- Insert a new hook.
 --
-public procedure insert_hook( integer hook_type, sequence func_name, integer func_id = routine_id(func_name) )
+public procedure insert_hook( integer hook_type, sequence func_name = get_hook_name(hook_type), integer func_id = routine_id(func_name) )
 	m_hooks[hook_type][HOOK_LIST] = append( m_hooks[hook_type][HOOK_LIST], {func_name,func_id} )
 end procedure
 
@@ -544,11 +582,13 @@ public function handle_request( sequence path_info, sequence request_method, seq
         if not regex:is_match( pattern, path_info ) then
             continue
         end if
-
+        
         sequence matches = regex:matches( pattern, path_info )
         object request = parse_request( vars, matches,
 			path_info, request_method, query_string )
-
+        
+        m_current_route = name
+        
 		exit_code = run_hooks( HOOK_RESPONSE_START )
 		if exit_code then return "" end if
 
@@ -558,6 +598,8 @@ public function handle_request( sequence path_info, sequence request_method, seq
 		exit_code = run_hooks( HOOK_RESPONSE_END )
 		if exit_code then return "" end if
 
+        m_current_route = ""
+        
         route_found = i
         exit
 
@@ -571,10 +613,12 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
 	        object path, name, vars, func_id
 	        {path,name,vars,func_id} = map:get( m_routes, pattern )
-
+	        
 			object request = parse_request( {}, {},
 				path_info, request_method, query_string )
-
+            
+	        m_current_route = name
+	        
 			exit_code = run_hooks( HOOK_RESPONSE_START )
 			if exit_code then return "" end if
 
@@ -583,6 +627,8 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
 			exit_code = run_hooks( HOOK_RESPONSE_END )
 			if exit_code then return "" end if
+            
+            m_current_route = ""
 
 		else
 
@@ -625,6 +671,10 @@ public procedure run()
         {"name"},
         {"response",0}
     }, routine_id("url_for") )
+
+    add_function( "get_current_route", {
+		-- no parameters
+	}, routine_id("get_current_route") )
 
 	sequence response = handle_request( path_info, request_method, query_string )
 
