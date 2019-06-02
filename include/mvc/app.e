@@ -29,6 +29,9 @@ constant re_varonly = regex:new( `^<([_a-zA-Z][_a-zA-Z0-9]*)>$` )
 -- variable with type
 constant re_vartype = regex:new( `^<([_a-zA-Z][_a-zA-Z0-9]*):(atom|integer|string|object)>$` )
 
+-- variable with optional types
+constant re_variable = regex:new( `<([_a-zA-Z)[_a-zA-Z0-9]*)(?:\:(atom|integer|string|object))?>` )
+
 -- type identifier patterns
 map m_regex = map:new()
 map:put( m_regex, "atom",    regex:new(`([-]?[0-9]*\.[0-9]+)`) )
@@ -398,7 +401,7 @@ end function
 -- Assign a route path to a handler function.
 --
 public procedure route( sequence path, sequence name = get_route_name(path), integer func_id = routine_id(name) )
-
+/*
     if func_id = -1 then
         error:crash( "route function '%s' not found", {name} )
     end if
@@ -438,9 +441,79 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
     end for
 
     regex pattern = regex:new( "^/" & stdseq:join( parts, "/" ) & "$" )
-	printf( 2, "pattern = '%s'\n", {pattern} )
 
 	map:put( m_names, name, pattern )
+    map:put( m_routes, pattern, {path,name,vars,func_id} )
+*/
+
+
+    if func_id = -1 then
+        error:crash( "route function '%s' not found", {name} )
+    end if
+
+    if equal( "*", path ) then
+        regex pattern = regex:new( "^/.+$" )
+        map:put( m_names, name, pattern )
+        map:put( m_routes, pattern, {path,name,{},func_id} )
+        return
+
+    elsif map:has( m_routes, path ) then
+        return
+
+    elsif not search:begins( "/", path ) then
+        return 
+
+    end if
+
+    sequence vars = {""}
+    sequence varname, vartype, varpattern
+    integer match_start, match_stop
+	integer name_start, name_stop
+	integer type_start, type_stop
+
+    object pattern = path
+	object match = regex:find( re_variable, pattern )
+
+	while sequence( match ) do
+        
+        {match_start,match_stop} = match[1]
+        
+		if length( match ) = 2 then
+
+			{name_start,name_stop} = match[2]
+
+			varname = pattern[name_start..name_stop]
+			vartype = "object"
+
+		elsif length( match ) = 3 then
+
+			{name_start,name_stop} = match[2]
+			{type_start,type_stop} = match[3]
+
+			varname = pattern[name_start..name_stop]
+			vartype = pattern[type_start..type_stop]
+
+		else
+
+			exit
+
+		end if
+
+		if map:has( m_regex, vartype ) then
+            varpattern = map:get( m_regex, vartype )
+        else
+            varpattern = map:get( m_regex, "object" )
+		end if
+		
+		vars = append( vars, {varname,vartype} )
+		pattern = replace( pattern, varpattern, match_start, match_stop )
+
+		match = regex:find( re_variable, pattern, match[1][2] )
+	end while
+
+	pattern = regex:new( pattern )
+	
+    map:put( m_names, name, pattern )
     map:put( m_routes, pattern, {path,name,vars,func_id} )
 
 end procedure
