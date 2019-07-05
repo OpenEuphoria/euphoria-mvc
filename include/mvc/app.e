@@ -167,17 +167,17 @@ end procedure
 --
 
 public enum
-    AS_STRING,
-    AS_INTEGER,
-    AS_NUMBER
+	AS_STRING,
+	AS_INTEGER,
+	AS_NUMBER
 
 function as_default( integer as_type )
 
-    if as_type = AS_STRING then
-        return ""
-    end if
+	if as_type = AS_STRING then
+		return ""
+	end if
 
-    return 0
+	return 0
 end function
 
 --
@@ -185,21 +185,21 @@ end function
 --
 public function getenv( sequence name, integer as_type = AS_STRING, object default = as_default(as_type) )
 
-    object value = eu:getenv( name )
+	object value = eu:getenv( name )
 
-    if atom( value ) then
-        return default
-    end if
+	if atom( value ) then
+		return default
+	end if
 
-    if as_type = AS_INTEGER then
-        value = to_integer( value )
+	if as_type = AS_INTEGER then
+		value = to_integer( value )
 
-    elsif as_type = AS_NUMBER then
-        value = to_number( value )
+	elsif as_type = AS_NUMBER then
+		value = to_number( value )
 
-    end if
+	end if
 
-    return value
+	return value
 end function
 
 --
@@ -210,8 +210,8 @@ end function
 -- Return TRUE if an item looks like a variable.
 --
 public function is_variable( sequence item )
-    return regex:is_match( re_varonly, item )
-        or regex:is_match( re_vartype, item )
+	return regex:is_match( re_varonly, item )
+		or regex:is_match( re_vartype, item )
 end function
 
 --
@@ -219,26 +219,26 @@ end function
 --
 public function parse_variable( sequence item )
 
-    sequence var_name = ""
-    sequence var_type = ""
+	sequence var_name = ""
+	sequence var_type = ""
 
-    if regex:is_match( re_varonly, item ) then
+	if regex:is_match( re_varonly, item ) then
 
-        sequence matches = regex:matches( re_varonly, item )
+		sequence matches = regex:matches( re_varonly, item )
 
-        var_name = matches[2]
-        var_type = "object"
+		var_name = matches[2]
+		var_type = "object"
 
-    elsif regex:is_match( re_vartype, item ) then
+	elsif regex:is_match( re_vartype, item ) then
 
-        sequence matches = regex:matches( re_vartype, item )
+		sequence matches = regex:matches( re_vartype, item )
 
-        var_name = matches[2]
-        var_type = matches[3]
+		var_name = matches[2]
+		var_type = matches[3]
 
-    end if
+	end if
 
-    return {var_name,var_type}
+	return {var_name,var_type}
 end function
 
 --
@@ -247,15 +247,15 @@ end function
 public procedure header( sequence name, object value, object data = {} )
 
 	if atom( value ) then
-        value = sprint( value )
+		value = sprint( value )
 
 	elsif string( value ) then
-        value = sprintf( value, data )
+		value = sprintf( value, data )
 
-    elsif sequence_array( value ) and length( value ) = 1 then
-        value = map:get( m_headers, name, {} ) & value
+	elsif sequence_array( value ) and length( value ) = 1 then
+		value = map:get( m_headers, name, {} ) & value
 
-    end if
+	end if
 
 	map:put( m_headers, name, value )
 
@@ -281,10 +281,10 @@ end ifdef
 --
 
 enum
-    ROUTE_PATH,
-    ROUTE_NAME,
-    ROUTE_VARS,
-    ROUTE_RID
+	ROUTE_PATH,
+	ROUTE_NAME,
+	ROUTE_VARS,
+	ROUTE_RID
 
 --
 -- Return the current route name.
@@ -315,22 +315,22 @@ public function url_for( sequence name, object response = {} )
 
 	if map( response ) then
 
-	    sequence parts = stdseq:split( path[2..$], "/" )
+		sequence parts = stdseq:split( path[2..$], "/" )
 		sequence varname, vartype
 
-	    for i = 1 to length( parts ) do
-    	    if is_variable( parts[i] ) then
+		for i = 1 to length( parts ) do
+			if is_variable( parts[i] ) then
 
-        	    {varname,vartype} = parse_variable( parts[i] )
+				{varname,vartype} = parse_variable( parts[i] )
 
-            	if length( varname ) and length( vartype ) then
+				if length( varname ) and length( vartype ) then
 					object value = map:get( response, varname, 0 )
 					if atom( value ) then value = sprint( value ) end if
 					parts[i] = value
-    	        end if
+				end if
 
-        	end if
-	    end for
+			end if
+		end for
 
 		path = "/" & stdseq:join( parts, "/" )
 
@@ -384,27 +384,27 @@ public function get_route_name( sequence path )
 	if equal( "*", path ) then
 		return "default"
 
-    elsif not search:begins( "/", path ) then
-        return ""
+	elsif not search:begins( "/", path ) then
+		return ""
 
-    end if
+	end if
 
-    sequence parts = stdseq:split( path[2..$], "/" )
-    if length( parts ) = 0 then
-        return ""
-    end if
+	sequence parts = stdseq:split( path[2..$], "/" )
+	if length( parts ) = 0 then
+		return ""
+	end if
 
-    return stdseq:retain_all( "_abcdefghijklmnopqrstuvwxyz", parts[1] )
+	return stdseq:retain_all( "_abcdefghijklmnopqrstuvwxyz", parts[1] )
 end function
 
 --
 -- Assign a route path to a handler function.
 --
 public procedure route( sequence path, sequence name = get_route_name(path), integer func_id = routine_id(name) )
-/*
-    if func_id = -1 then
-        error:crash( "route function '%s' not found", {name} )
-    end if
+
+	if func_id = -1 then
+		error:crash( "route function '%s' not found", {name} )
+	end if
 
 	if equal( "*", path ) then
 		regex pattern = regex:new( "^/.+$" )
@@ -412,72 +412,27 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
 		map:put( m_routes, pattern, {path,name,{},func_id} )
 		return
 
-    elsif map:has( m_routes, path ) then
-        return
+	elsif map:has( m_routes, path ) then
+		return
 
-    elsif not search:begins( "/", path ) then
-        return
+	elsif not search:begins( "/", path ) then
+		return 
 
-    end if
+	end if
 
-    sequence vars = {""}
-    sequence varname, vartype
-
-    sequence parts = stdseq:split( path[2..$], "/" )
-
-    for i = 1 to length( parts ) do
-
-        if is_variable( parts[i] ) then
-
-            {varname,vartype} = parse_variable( parts[i] )
-
-            if length( varname ) and length( vartype ) then
-                vars = append( vars, {varname,vartype} )
-                parts[i] = map:get( m_regex, vartype, "" )
-            end if
-
-        end if
-
-    end for
-
-    regex pattern = regex:new( "^/" & stdseq:join( parts, "/" ) & "$" )
-
-	map:put( m_names, name, pattern )
-    map:put( m_routes, pattern, {path,name,vars,func_id} )
-*/
-
-
-    if func_id = -1 then
-        error:crash( "route function '%s' not found", {name} )
-    end if
-
-    if equal( "*", path ) then
-        regex pattern = regex:new( "^/.+$" )
-        map:put( m_names, name, pattern )
-        map:put( m_routes, pattern, {path,name,{},func_id} )
-        return
-
-    elsif map:has( m_routes, path ) then
-        return
-
-    elsif not search:begins( "/", path ) then
-        return 
-
-    end if
-
-    sequence vars = {""}
-    sequence varname, vartype, varpattern
-    integer match_start, match_stop
+	sequence vars = {""}
+	sequence varname, vartype, varpattern
+	integer match_start, match_stop
 	integer name_start, name_stop
 	integer type_start, type_stop
 
-    object pattern = path
+	object pattern = path
 	object match = regex:find( re_variable, pattern )
 
 	while sequence( match ) do
-        
-        {match_start,match_stop} = match[1]
-        
+
+		{match_start,match_stop} = match[1]
+
 		if length( match ) = 2 then
 
 			{name_start,name_stop} = match[2]
@@ -500,11 +455,11 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
 		end if
 
 		if map:has( m_regex, vartype ) then
-            varpattern = map:get( m_regex, vartype )
-        else
-            varpattern = map:get( m_regex, "object" )
+			varpattern = map:get( m_regex, vartype )
+		else
+			varpattern = map:get( m_regex, "object" )
 		end if
-		
+
 		vars = append( vars, {varname,vartype} )
 		pattern = replace( pattern, varpattern, match_start, match_stop )
 
@@ -512,9 +467,9 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
 	end while
 
 	pattern = regex:new( pattern )
-	
-    map:put( m_names, name, pattern )
-    map:put( m_routes, pattern, {path,name,vars,func_id} )
+
+	map:put( m_names, name, pattern )
+	map:put( m_routes, pattern, {path,name,vars,func_id} )
 
 end procedure
 
@@ -595,35 +550,35 @@ end function
 --
 public function parse_request( sequence vars, sequence matches, sequence path_info, sequence request_method, sequence query_string )
 
-    if length( vars ) != length( matches ) then
-        error:crash( "route parameters do not match (%d != %d)",
-            { length(vars), length(matches) } )
-    end if
+	if length( vars ) != length( matches ) then
+		error:crash( "route parameters do not match (%d != %d)",
+			{ length(vars), length(matches) } )
+	end if
 
-    map request = parse_querystring( query_string )
-    map:put( request, "PATH_INFO", path_info )
-    map:put( request, "REQUEST_METHOD", request_method )
-    map:put( request, "QUERY_STRING", query_string )
+	map request = parse_querystring( query_string )
+	map:put( request, "PATH_INFO", path_info )
+	map:put( request, "REQUEST_METHOD", request_method )
+	map:put( request, "QUERY_STRING", query_string )
 
-    object varname, vartype, vardata
+	object varname, vartype, vardata
 
-    for j = 2 to length( vars ) do
-        {varname,vartype} = vars[j]
+	for j = 2 to length( vars ) do
+		{varname,vartype} = vars[j]
 
-        switch vartype do
-            case "atom" then
-                vardata = to_number( matches[j] )
-            case "integer" then
-                vardata = to_integer( matches[j] )
-            case else
-                vardata = matches[j]
-        end switch
+		switch vartype do
+			case "atom" then
+				vardata = to_number( matches[j] )
+			case "integer" then
+				vardata = to_integer( matches[j] )
+			case else
+				vardata = matches[j]
+		end switch
 
-        map:put( request, varname, vardata )
+		map:put( request, varname, vardata )
 
-    end for
+	end for
 
-    return request
+	return request
 end function
 
 --
@@ -631,52 +586,52 @@ end function
 --
 public function handle_request( sequence path_info, sequence request_method, sequence query_string )
 
-    integer route_found = 0
+	integer route_found = 0
 	integer default_route = 0
 	sequence response = ""
-    sequence patterns = map:keys( m_routes )
+	sequence patterns = map:keys( m_routes )
 
 	integer exit_code
 
 	exit_code = run_hooks( HOOK_REQUEST_START )
 	if exit_code then return "" end if
 
-    for i = 1 to length( patterns ) do
-        sequence pattern = patterns[i]
+	for i = 1 to length( patterns ) do
+		sequence pattern = patterns[i]
 
-        object path, name, vars, func_id
-        {path,name,vars,func_id} = map:get( m_routes, pattern )
+		object path, name, vars, func_id
+		{path,name,vars,func_id} = map:get( m_routes, pattern )
 
 		if equal( "*", path ) then
 			default_route = i
 			continue
 		end if
 
-        if not regex:is_match( pattern, path_info ) then
-            continue
-        end if
-        
-        sequence matches = regex:matches( pattern, path_info )
-        object request = parse_request( vars, matches,
+		if not regex:is_match( pattern, path_info ) then
+			continue
+		end if
+
+		sequence matches = regex:matches( pattern, path_info )
+		object request = parse_request( vars, matches,
 			path_info, request_method, query_string )
-        
-        m_current_route = name
-        
+
+		m_current_route = name
+
 		exit_code = run_hooks( HOOK_RESPONSE_START )
 		if exit_code then return "" end if
 
-        header( "Content-Type", "text/html" )
-        response = call_func( func_id, {request} )
+		header( "Content-Type", "text/html" )
+		response = call_func( func_id, {request} )
 
 		exit_code = run_hooks( HOOK_RESPONSE_END )
 		if exit_code then return "" end if
 
-        m_current_route = ""
-        
-        route_found = i
-        exit
+		m_current_route = ""
 
-    end for
+		route_found = i
+		exit
+
+	end for
 
 	if not route_found then
 
@@ -684,24 +639,25 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
 			sequence pattern = patterns[default_route]
 
-	        object path, name, vars, func_id
-	        {path,name,vars,func_id} = map:get( m_routes, pattern )
-	        
+			object path, name, vars, func_id
+			{path,name,vars,func_id} = map:get( m_routes, pattern )
+
 			object request = parse_request( {}, {},
 				path_info, request_method, query_string )
-            
-	        m_current_route = name
-	        
+
+			m_current_route = name
+
 			exit_code = run_hooks( HOOK_RESPONSE_START )
 			if exit_code then return "" end if
 
-	        header( "Content-Type", "text/html" )
-	        response = call_func( func_id, {request} )
+			header( "Content-Type", "text/html" )
+			response = call_func( func_id, {request} )
 
 			exit_code = run_hooks( HOOK_RESPONSE_END )
 			if exit_code then return "" end if
-            
-            m_current_route = ""
+
+			response_code( 200, "OK" )
+			m_current_route = ""
 
 		else
 
@@ -721,6 +677,30 @@ public function handle_request( sequence path_info, sequence request_method, seq
 	return response
 end function
 
+integer first_run = TRUE
+
+--
+-- Initialize the application
+--
+public procedure init_app()
+
+	if first_run then
+
+		add_function( "url_for", {
+			{"name"},
+			{"response",0}
+		}, routine_id("url_for") )
+
+		add_function( "get_current_route", {
+			-- no parameters
+		}, routine_id("get_current_route") )
+
+		first_run = FALSE
+
+	end if
+
+end procedure
+
 --
 -- Entry point for the application. Performs basic setup and calls handle_request().
 --
@@ -731,7 +711,7 @@ public procedure run()
 	exit_code = run_hooks( HOOK_APP_START )
 	if exit_code then return end if
 
-    sequence path_info      = getenv( "PATH_INFO" )
+	sequence path_info      = getenv( "PATH_INFO" )
 	sequence request_method = getenv( "REQUEST_METHOD" )
 	sequence query_string   = getenv( "QUERY_STRING" )
 	integer content_length  = getenv( "CONTENT_LENGTH", AS_INTEGER, 0 )
@@ -740,14 +720,7 @@ public procedure run()
 		query_string = get_bytes( STDIN, content_length )
 	end if
 
-    add_function( "url_for", {
-        {"name"},
-        {"response",0}
-    }, routine_id("url_for") )
-
-    add_function( "get_current_route", {
-		-- no parameters
-	}, routine_id("get_current_route") )
+	init_app()
 
 	sequence response = handle_request( path_info, request_method, query_string )
 
@@ -761,12 +734,12 @@ public procedure run()
 		object value = map:get( m_headers, headers[i] )
 
 		if sequence_array( value ) then
-            for j = 1 to length( value ) do
-                printf( STDOUT, "%s: %s\r\n", {headers[i],value[j]} )
-            end for
+			for j = 1 to length( value ) do
+				printf( STDOUT, "%s: %s\r\n", {headers[i],value[j]} )
+			end for
 		else
-            if atom( value ) then value = sprint( value ) end if
-            printf( STDOUT, "%s: %s\r\n", {headers[i],value} )
+			if atom( value ) then value = sprint( value ) end if
+			printf( STDOUT, "%s: %s\r\n", {headers[i],value} )
 		end if
 
 	end for
@@ -774,8 +747,8 @@ public procedure run()
 	exit_code = run_hooks( HOOK_HEADERS_END )
 	if exit_code then return end if
 
-    puts( STDOUT, "\r\n" )
-    puts( STDOUT, response )
+	puts( STDOUT, "\r\n" )
+	puts( STDOUT, response )
 
 	exit_code = run_hooks( HOOK_APP_END )
 	if exit_code then return end if
