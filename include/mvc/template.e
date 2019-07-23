@@ -15,6 +15,8 @@ include std/text.e
 include std/types.e
 include std/utils.e
 
+include mvc/logger.e
+
 constant NULL = 0
 
 --
@@ -73,6 +75,8 @@ $
 -- Global template management.
 --
 
+map m_template_cache = map:new()
+
 object template_path = getenv( "TEMPLATE_PATH" )
 
 if atom( template_path ) then
@@ -110,9 +114,11 @@ end type
 public procedure add_function( sequence func_name, sequence params = {}, integer func_id = routine_id(func_name) )
 
     if func_id = -1 then
-        error:crash( "function '%s' not found", {func_name} )
+        log_error( "function %s not found", {func_name} )
+        error:crash( "function %s not found", {func_name} )
     end if
 
+    log_debug( "Registered function %s at routine id %d", {func_name,func_id} )
     map:put( m_functions, func_name, {params,func_id} )
 
 end procedure
@@ -127,18 +133,28 @@ public function call_function( sequence func_name, sequence values = {} )
 
 	{params,func_id} = map:get( m_functions, func_name, {{},-1} )
 
+	log_trace( "params = %s", {params} )
+	log_trace( "func_id = %d", {func_id} )
+
 	if func_id = -1 then
-		error:crash( "function '%s' not found", {func_name} )
+		log_error( "function %s not found", {func_name} )
+		error:crash( "function %s not found", {func_name} )
 	end if
 
 	integer start = length( values ) + 1
 	integer stop = length( params )
 
+	log_trace( "start = %d, stop = %d", {start,stop} )
+
 	for i = start to stop do
+
 		if not default_param( params[i] ) then
-			error:crash( "function '%s' does not provide a default value for param '%s'", {func_name,params[i]} )
+			log_error( "function %s does not provide a default value for param %s", {func_name,params[i]} )
+			error:crash( "function %s does not provide a default value for param %s", {func_name,params[i]} )
 		end if
+
 		values = append( values, params[i][2] )
+
 	end for
 
 	return call_func( func_id, values )
@@ -155,6 +171,7 @@ function _equal( object a, object b )
     return equal( a, b )
 end function
 add_function( "equal", {"a","b"}, routine_id("_equal") )
+
 
 --
 -- not_equal()
@@ -314,56 +331,92 @@ public function token_parser( sequence tokens, integer start = 1, sequence exit_
 	return {tree,i}
 end function
 
-constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9\.]*[^\.])$` )
-constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]*)\((.*)\)$` )
+--constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9\.]*[^\.])$` )
+constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
+constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]+)\((.*)\)$` )
 
 --
 -- Parse a variable or function or literal value.
 --
 public function parse_value( sequence data, object response )
 
+	object var_value = 0
+
 	if regex:is_match( re_variable, data ) then
 		-- parse a variable and get its value
 
 		sequence matches = regex:matches( re_variable, data )
+
 		sequence var_name = matches[2]
+		log_trace( "var_name = %s", {var_name} )
 
 		if find( '.', var_name ) then
+
 			sequence var_list = stdseq:split( var_name, '.' )
-			return map:nested_get( response, var_list, "" )
+			log_trace( "var_list = %s", {var_list} )
+
+			var_value = map:nested_get( response, var_list, "" )
+
+		elsif map:has( response, var_name ) then
+			var_value = map:get( response, var_name )
+
 		end if
 
-		if map:has( response, var_name ) then
-            return map:get( response, var_name )
-        end if
+		if length( matches ) = 3 and matches[3][1] = '[' and matches[3][$] = ']' then
+			-- variable has subscript
+
+			sequence subscript = stdseq:split( matches[3][2..$-1], "][" )
+			log_trace( "subscript = %s", {subscript} )
+
+			for i = 1 to length( subscript ) do
+
+				subscript[i] = parse_value( subscript[i], response )
+				log_trace( "subscript[%d] = %s", {i,subscript[i]} )
+
+				if valid_index( var_value, subscript[i] ) then
+					var_value = var_value[subscript[i]]
+				end if
+
+			end for
+
+		end if
+
 
 	elsif regex:is_match( re_function, data ) then
 		-- parse and call a function, and return its value
 
 		sequence matches = regex:matches( re_function, data )
+
 		sequence func_name = matches[2]
 		sequence func_params = matches[3]
 
 		func_params = keyvalues( func_params, ",", "=", "\"" )
 
+		log_trace( "func_name = %s", {func_name} )
+		log_trace( "func_params = %s", {func_params} )
+
 		for i = 1 to length( func_params ) do
 			func_params[i] = parse_value( func_params[i][2], response )
+			log_trace( "func_params[%d] = %s", {i,func_params[i]} )
 		end for
 
-		return call_function( func_name, func_params )
+		var_value = call_function( func_name, func_params )
 
 	else
 		-- parse and return a literal value
 
 		if search:begins( "'", data ) and search:ends( "'", data ) then
+			-- swap single quotes to double
 			data = '"' & data[2..$-1] & '"'
 		end if
 
-        return defaulted_value( data, 0 )
+		var_value = defaulted_value( data, 0 )
 
 	end if
 
-	return ""
+	log_trace( "var_value = %s", {var_value} )
+
+	return var_value
 end function
 
 --
@@ -381,6 +434,7 @@ end function
 --
 public function render_expression( sequence tree, integer i, object response )
 
+	log_trace( "expression = '%s'", {tree[i][TDATA]} )
 	object value = parse_value( tree[i][TDATA], response )
 
 	if atom( value ) then
@@ -451,17 +505,24 @@ public function render_for( sequence tree, integer i, object response )
 
 		sequence matches = regex:matches( re_foritem, data )
 
-		sequence item_name = matches[2]
 		sequence list_name = matches[3]
+		log_trace( "list_name = '%s'", {list_name} )
 
 		object list_value = parse_value( list_name, response )
+		log_trace( "list_value = '%s'", {list_value} )
 
 		if not sequence( list_value ) then
 			error:crash( "expected object '%s' is not a sequence", {list_name} )
 		end if
 
+		sequence item_name = matches[2]
+		log_trace( "item_name = '%s'", {item_name} )
+
 		for j = 1 to length( list_value ) do
+			map:put( response, "current_index", j )
+
 			object item_value = list_value[j]
+			log_trace( "item_value = '%s'", {item_value} )
 
 			map:put( response, item_name, item_value )
 			{temp,?} = render_block( tree, i, response )
@@ -470,6 +531,7 @@ public function render_for( sequence tree, integer i, object response )
 
 		end for
 
+		map:remove( response, "current_index" )
 		map:remove( response, item_name )
 
 	elsif regex:is_match( re_forloop, data ) then
@@ -494,6 +556,7 @@ public function render_for( sequence tree, integer i, object response )
 		end for
 
 		map:remove( response, iter_name )
+		
 
 	elsif regex:is_match( re_forloopby, data ) then
 		-- parse 'for i = m to n by z' block
@@ -677,7 +740,12 @@ public function render_template( sequence filename, object response = {} )
 		filename = template_path & SLASH & filename
 	end if
 
-	object text = read_file( filename )
+	object text = map:get( m_template_cache, filename, 0 )
+
+	if atom( text ) then
+		text = read_file( filename )
+		map:put( m_template_cache, filename, text )
+	end if
 
 	if atom( text ) then
 		error:crash( "could not read template: %s", {filename} )
