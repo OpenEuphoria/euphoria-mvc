@@ -246,6 +246,8 @@ end function
 --
 public procedure header( sequence name, object value, object data = {} )
 
+	name = text:proper( name )
+
 	if atom( value ) then
 		value = sprint( value )
 
