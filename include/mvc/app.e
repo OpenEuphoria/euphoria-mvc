@@ -14,6 +14,7 @@ include std/text.e
 include std/types.e
 include std/utils.e
 
+include mvc/logger.e
 include mvc/template.e
 
 --
@@ -405,20 +406,25 @@ end function
 public procedure route( sequence path, sequence name = get_route_name(path), integer func_id = routine_id(name) )
 
 	if func_id = -1 then
-		error:crash( "route function '%s' not found", {name} )
+		log_error( "route function '%s' not found", {name} )
+		error:crash( "route function %s not found", {name} )
 	end if
 
 	if equal( "*", path ) then
 		regex pattern = regex:new( "^/.+$" )
 		map:put( m_names, name, pattern )
 		map:put( m_routes, pattern, {path,name,{},func_id} )
+		log_debug( "Registered catch-all route handler %s", {name} )
 		return
 
 	elsif map:has( m_routes, path ) then
+		sequence orig = map:get( m_routes, path, "" )
+		log_warn( "Route for path %s already registered with %s", {path,orig} )
 		return
 
 	elsif not search:begins( "/", path ) then
-		return 
+		log_error( "Route %s does not begin with a slash", {path} )
+		error:crash( "Route %s does not begin with a slash", {path} )
 
 	end if
 
@@ -429,23 +435,32 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
 	integer type_start, type_stop
 
 	object pattern = path
-	object match = regex:find( re_variable, pattern )
+	object matches = regex:find( re_variable, pattern )
 
-	while sequence( match ) do
+	log_trace( "path = %s", {path} )
 
-		{match_start,match_stop} = match[1]
+	while sequence( matches ) do
 
-		if length( match ) = 2 then
+		{match_start,match_stop} = matches[1]
 
-			{name_start,name_stop} = match[2]
+		log_trace( "match_start = %d, match_stop = %d", {match_start,match_stop} )
+
+		if length( matches ) = 2 then
+
+			{name_start,name_stop} = matches[2]
+
+			log_trace( "name_start = %d, name_stop = %d", {name_start,name_stop} )
 
 			varname = pattern[name_start..name_stop]
 			vartype = "object"
 
-		elsif length( match ) = 3 then
+		elsif length( matches ) = 3 then
 
-			{name_start,name_stop} = match[2]
-			{type_start,type_stop} = match[3]
+			{name_start,name_stop} = matches[2]
+			{type_start,type_stop} = matches[3]
+
+			log_trace( "name_start = %d, name_stop = %d", {name_start,name_stop} )
+			log_trace( "type_start = %d, type_stop = %d", {type_start,type_stop} )
 
 			varname = pattern[name_start..name_stop]
 			vartype = pattern[type_start..type_stop]
@@ -462,16 +477,21 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
 			varpattern = map:get( m_regex, "object" )
 		end if
 
+		log_trace( "varname = %s, vartype = %s", {varname,vartype} )
+		log_trace( "varpattern = %s", {varpattern} )
+
 		vars = append( vars, {varname,vartype} )
 		pattern = replace( pattern, varpattern, match_start, match_stop )
 
-		match = regex:find( re_variable, pattern, match[1][2] )
+		matches = regex:find( re_variable, pattern, matches[1][2] )
 	end while
 
 	pattern = regex:new( pattern )
 
 	map:put( m_names, name, pattern )
 	map:put( m_routes, pattern, {path,name,vars,func_id} )
+
+	log_debug( "Registered route %s with path %s", {name,path} )
 
 end procedure
 
@@ -703,6 +723,37 @@ public procedure init_app()
 
 end procedure
 
+public function format_headers( map headers )
+
+	integer exit_code = 0
+	sequence headers_data = ""
+
+	exit_code = run_hooks( HOOK_HEADERS_START )
+	if exit_code then return "" end if
+
+	sequence keys = map:keys( headers )
+
+	for i = 1 to length( keys ) do
+
+		object value = map:get( headers, keys[i] )
+
+		if sequence_array( value ) then
+			for j = 1 to length( value ) do
+				headers_data &= sprintf( "%s: %s\r\n", {keys[i],value[j]} )
+			end for
+		else
+			if atom( value ) then value = sprint( value ) end if
+			headers_data &= sprintf( "%s: %s\r\n", {keys[i],value} )
+		end if
+
+	end for
+
+	exit_code = run_hooks( HOOK_HEADERS_END )
+	if exit_code then return "" end if
+
+	return headers_data
+end function
+
 --
 -- Entry point for the application. Performs basic setup and calls handle_request().
 --
@@ -725,32 +776,13 @@ public procedure run()
 	init_app()
 
 	sequence response = handle_request( path_info, request_method, query_string )
+	sequence headers = format_headers( m_headers )
 
-	exit_code = run_hooks( HOOK_HEADERS_START )
-	if exit_code then return end if
-
-	sequence headers = map:keys( m_headers )
-
-	for i = 1 to length( headers ) do
-
-		object value = map:get( m_headers, headers[i] )
-
-		if sequence_array( value ) then
-			for j = 1 to length( value ) do
-				printf( STDOUT, "%s: %s\r\n", {headers[i],value[j]} )
-			end for
-		else
-			if atom( value ) then value = sprint( value ) end if
-			printf( STDOUT, "%s: %s\r\n", {headers[i],value} )
-		end if
-
-	end for
-
-	exit_code = run_hooks( HOOK_HEADERS_END )
-	if exit_code then return end if
-
+	puts( STDOUT, headers )
 	puts( STDOUT, "\r\n" )
 	puts( STDOUT, response )
+
+	map:remove( m_headers, "Status" )
 
 	exit_code = run_hooks( HOOK_APP_END )
 	if exit_code then return end if
