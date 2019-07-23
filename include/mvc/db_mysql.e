@@ -1,14 +1,17 @@
 namespace db_mysql
 
 include db/mysql.e
+include std/dll.e
+include std/machine.e
 include std/net/url.e
 include std/pretty.e
 include std/search.e
+include std/types.e
 include mvc/database.e
 
 constant MYSQL = add_protocol( "mysql" )
 
-function _connect( sequence url )
+function _connect( sequence url, integer timeout )
 
 	object proto, host, user, passwd, db, port
 	{proto,host,port,db,user,passwd,?} = url:parse( url )
@@ -19,6 +22,11 @@ function _connect( sequence url )
     end if
 
 	atom mysql = mysql_init()
+
+	atom ptimeout = allocate_data( sizeof(C_UINT), TRUE )
+	poke4( ptimeout, floor( timeout / 1000 ) )
+
+	mysql_options( mysql, MYSQL_OPT_CONNECT_TIMEOUT, ptimeout )
 
 	if mysql_real_connect( mysql, host, user, passwd, db, port ) = 0 then
 	--	mysql_close( mysql )

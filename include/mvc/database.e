@@ -15,6 +15,7 @@ public enum
 	DB_ERROR,
     DB_LAST = DB_ERROR
 
+constant DEFAULT_TIMEOUT = 5000
 constant EMPTY_HANDLER = repeat( -1, DB_LAST )
 
 sequence protocols = {}, handlers = {}
@@ -57,7 +58,7 @@ end procedure
 --
 -- connect to a database
 --
-public function db_connect( sequence url )
+public function db_connect( sequence url, integer timeout = DEFAULT_TIMEOUT )
 
     sequence parts = url:parse( url )
     object proto = parts[1]
@@ -68,7 +69,7 @@ public function db_connect( sequence url )
     integer rtn_id = handlers[proto_id][DB_CONNECT]
     if rtn_id = -1 then return 0 end if
 
-    atom conn = call_func( rtn_id, {url} )
+    atom conn = call_func( rtn_id, {url,timeout} )
 
     if conn then
         map:put( m_conn, conn, proto_id )
