@@ -126,8 +126,6 @@ public procedure set_log_output( object file = DEFAULT_OUTPUT )
 
 end procedure
 
---set_log_output()
-
 public function get_timestamp()
 	return datetime:format( datetime:now(), m_date_format )
 end function
@@ -140,6 +138,18 @@ public procedure set_color( integer fn, integer color )
 
 end procedure
 
+sequence pretty_options = PRETTY_DEFAULT
+pretty_options[DISPLAY_ASCII] =      2  -- display as "string" when all integers of a sequence are in ASCII range
+pretty_options[INDENT       ] =      2  -- amount to indent for each level of sequence nesting -- default: 2
+pretty_options[START_COLUMN ] =      1  -- column we are starting at -- default: 1
+pretty_options[WRAP         ] =      0  -- approximate column to wrap at -- default: 78
+pretty_options[INT_FORMAT   ] =    "%d" -- format to use for integers -- default: "%d"
+pretty_options[FP_FORMAT    ] = "%.10g" -- format to use for floating-point numbers -- default: "%.10g"
+pretty_options[MIN_ASCII    ] =     32  -- minimum value for printable ASCII -- default: 32
+pretty_options[MAX_ASCII    ] =    127  -- maximum value for printable ASCII -- default: 127
+pretty_options[MAX_LINES    ] =     32  -- maximum number of lines to output -- default: 1 billion
+pretty_options[LINE_BREAKS  ] =  FALSE  -- line breaks between elements -- default: TRUE
+
 public procedure log_message( integer level, sequence msg, object data = {} )
 
 	if not equal( data, {} ) then
@@ -148,11 +158,19 @@ public procedure log_message( integer level, sequence msg, object data = {} )
 			data = {data}
 		end if
 
-		for i = 1 to length( data ) do
-			if sequence( data[i] ) and not string( data[i] ) then
-				data[i] = pretty_sprint( data[i], {2} )
+		integer i = 0
+		integer index = find( '%', msg )
+
+		while index != 0 and index < length(msg) do
+
+			i += msg[index+1] != '%'
+
+			if msg[index+1] = 's' then -- %s format
+				data[i] = pretty_sprint( data[i], pretty_options )
 			end if
-		end for
+
+			index = find( '%', msg, index+1 )
+		end while
 
 		msg = sprintf( msg, data )
 
@@ -184,25 +202,28 @@ end ifdef
 
 			integer fn = m_log_output[j]
 
-			-- write current date
+			-- write current timestamp
 			set_color( fn, m_date_color )
-			printf( fn, "%s ", {current_timestamp} )
+			printf( fn, "%s", {current_timestamp} )
 
-			-- write log level title
+			-- write log level title (WARN, etc.)
 			set_color( fn, log_color[level] )
-			printf( fn, "%s ", {log_title[level]} )
+			printf( fn, " %5s", {log_title[level]} )
 
 		ifdef EUI then
 
+			-- write padding to indicate the stack depth
+			puts( fn, repeat(' ',length(cs)-2) )
+
 			-- write calling file/line
 			set_color( fn, MAGENTA )
-			printf( fn, "%s@%s:%d ", {routine_name,file_name,line_no} )
+			printf( fn, "%s@%s:%d", {routine_name,file_name,line_no} )
 
 		end ifdef
 
 			-- write log message
 			set_color( fn, WHITE )
-			printf( fn, "%s\n", {msg_lines[i]} )
+			printf( fn, " %s\n", {msg_lines[i]} )
 
 		end for
 	end for
