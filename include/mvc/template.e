@@ -32,7 +32,10 @@ sequence token_regex = {}   -- list of token regexs
 -- Return the name of a given token type.
 --
 public function get_token_name( integer ttype )
-	return token_names[ttype]
+	if valid_index( ttype, token_names ) then
+		return token_names[ttype]
+	end if
+	return ""
 end function
 
 --
@@ -118,8 +121,10 @@ public procedure add_function( sequence func_name, sequence params = {}, integer
         error:crash( "function %s not found", {func_name} )
     end if
 
-    log_debug( "Registered function %s at routine id %d", {func_name,func_id} )
-    map:put( m_functions, func_name, {params,func_id} )
+    if not map:has( m_functions, func_name ) then
+		map:put( m_functions, func_name, {params,func_id} )
+		log_debug( "Registered function %s at routine id %d", {func_name,func_id} )
+	end if
 
 end procedure
 
@@ -165,13 +170,39 @@ end function
 --
 
 --
+-- atom()
+--
+function _atom( object x )
+	return atom( x )
+end function
+
+--
+-- integer()
+--
+function _integer( object x )
+	return integer( x )
+end function
+
+--
+-- sequence()
+--
+function _sequence( object x )
+	return sequence( x )
+end function
+
+--
+-- object()
+--
+function _object( object x )
+	return object( x )
+end function
+
+--
 -- equal()
 --
 function _equal( object a, object b )
     return equal( a, b )
 end function
-add_function( "equal", {"a","b"}, routine_id("_equal") )
-
 
 --
 -- not_equal()
@@ -179,7 +210,6 @@ add_function( "equal", {"a","b"}, routine_id("_equal") )
 function _not_equal( object a, object b )
     return not equal( a, b )
 end function
-add_function( "not_equal", {"a","b"}, routine_id("_not_equal") )
 
 --
 -- length()
@@ -187,7 +217,6 @@ add_function( "not_equal", {"a","b"}, routine_id("_not_equal") )
 function _length( object x )
 	return length( x )
 end function
-add_function( "length", {"x"}, routine_id("_length") )
 
 --
 -- not()
@@ -195,7 +224,27 @@ add_function( "length", {"x"}, routine_id("_length") )
 function _not( object x )
 	return equal( x, 0 ) or equal( x, "" )
 end function
-add_function( "not", {"x"}, routine_id("_not") )
+
+--
+-- and()
+--
+function _and( object a, object b )
+	return a and b
+end function
+
+--
+-- or()
+--
+function _or( object a, object b )
+	return a or b
+end function
+
+--
+-- xor()
+--
+function _xor( object a, object b )
+	return a xor b
+end function
 
 --
 -- Template token lexer.
@@ -380,7 +429,6 @@ public function parse_value( sequence data, object response )
 			end for
 
 		end if
-
 
 	elsif regex:is_match( re_function, data ) then
 		-- parse and call a function, and return its value
@@ -750,6 +798,18 @@ public function render_template( sequence filename, object response = {} )
 	if atom( text ) then
 		error:crash( "could not read template: %s", {filename} )
 	end if
+
+	add_function( "atom",      {"x"},     routine_id("_atom") )
+	add_function( "integer",   {"x"},     routine_id("_integer") )
+	add_function( "sequence",  {"x"},     routine_id("_sequence") )
+	add_function( "object",    {"x"},     routine_id("_object") )
+	add_function( "equal",     {"a","b"}, routine_id("_equal") )
+	add_function( "not_equal", {"a","b"}, routine_id("_not_equal") )
+	add_function( "length",    {"x"},     routine_id("_length") )
+	add_function( "not",       {"x"},     routine_id("_not") )
+	add_function( "and",       {"a","b"}, routine_id("_and") )
+	add_function( "or",        {"a","b"}, routine_id("_or") )
+	add_function( "xor",       {"a","b"}, routine_id("_xor") )
 
 	return parse_template( text, response )
 end function
