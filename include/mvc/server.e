@@ -136,8 +136,6 @@ public procedure run_server( sequence listen_addr, integer listen_port )
 
 	log_debug( "Listening on %s:%d", {listen_addr,listen_port} )
 
-	init_app()
-
 	exit_code = run_hooks( HOOK_APP_START )
 	if exit_code then return end if
 

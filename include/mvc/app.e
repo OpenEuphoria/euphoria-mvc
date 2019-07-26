@@ -3,6 +3,7 @@ namespace app
 
 include std/convert.e
 include std/error.e
+include std/get.e
 include std/map.e
 include std/io.e
 include std/pretty.e
@@ -176,7 +177,7 @@ public function get_error_page( integer error_code )
 
 	log_trace( "error_code = %s", {error_code} )
 
-	return map:get( m_error_page, code, DEFAULT_ERROR_PAGE )
+	return map:get( m_error_page, error_code, DEFAULT_ERROR_PAGE )
 end function
 
 --
@@ -185,7 +186,7 @@ end function
 public procedure set_error_page( integer error_code, sequence error_page )
 
 	log_trace( "error_code = %s", {error_code} )
-	log_trace( "error_page = %s", {error_page}, VERBOSE )
+	log_trace( "error_page = %s", {error_page}, LOG_VERBOSE )
 
 	map:put( m_error_page, error_code, error_page )
 
@@ -230,7 +231,7 @@ end function
 --
 -- Look up an environment variable and optionally convert it to another type.
 --
-public function getenv( sequence env_name, integer env_type = AS_STRING, object default = as_default(as_type) )
+public function getenv( sequence env_name, integer env_type = AS_STRING, object default = as_default(env_type) )
 
 	log_trace( "env_name = %s", {env_name} )
 	log_trace( "env_type = %s", {env_type} )
@@ -410,9 +411,9 @@ public function redirect( sequence redirect_url, integer redirect_code = 302 )
 
 	sequence message = sprintf( `Please <a href="%s">click here</a> if you are not automatically redirected.`, {redirect_url} )
 
-	header( "Location", "%s", {url} )
+	header( "Location", "%s", {redirect_url} )
 
-	return response_code( code, "Redirect", message )
+	return response_code( redirect_code, "Redirect", message )
 end function
 
 --
