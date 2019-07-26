@@ -18,6 +18,26 @@ include mvc/logger.e
 include mvc/template.e
 
 --
+-- Debugging
+--
+
+ifdef APP_DEBUG then
+
+set_log_level( LOG_DEBUG )
+log_info( "Application debugging mode enabled" )
+
+-- TODO: add crash handler
+
+public function crash_handler( integer param )
+
+
+	return 0 and param
+end function
+crash_routine( routine_id("crash_handler") )
+
+end ifdef
+
+--
 -- Route Parsing
 --
 
@@ -152,15 +172,25 @@ map m_error_page = map:new()
 --
 -- Returns the error page template defined for the response code.
 --
-public function get_error_page( integer code )
+public function get_error_page( integer error_code )
+
+	log_trace( "error_code = %s", {error_code} )
+
 	return map:get( m_error_page, code, DEFAULT_ERROR_PAGE )
 end function
 
 --
 -- Set the error page template defined for the response code.
 --
-public procedure set_error_page( integer code, sequence template )
-	map:put( m_error_page, code, template )
+public procedure set_error_page( integer error_code, sequence error_page )
+
+	log_trace( "error_code = %s", {error_code} )
+	log_trace( "error_page = %s", {error_page}, VERBOSE )
+
+	map:put( m_error_page, error_code, error_page )
+
+	log_debug( "Registered custom %d error page", {error_code} )
+
 end procedure
 
 --
@@ -168,9 +198,10 @@ end procedure
 --
 
 public enum
-	AS_STRING,
-	AS_INTEGER,
-	AS_NUMBER
+	AS_STRING = 0, -- basically does nothing, environment variables are already strings
+	AS_INTEGER,    -- converts string to integer
+	AS_NUMBER,     -- converts string to atom
+	AS_OBJECT      -- converts string to object, e.g. "{1,2,3}" -> {1,2,3}
 
 function as_default( integer as_type )
 
@@ -181,26 +212,52 @@ function as_default( integer as_type )
 	return 0
 end function
 
---
--- Look up an environment variable and optionally convert it to another type.
---
-public function getenv( sequence name, integer as_type = AS_STRING, object default = as_default(as_type) )
+function to_object( object val, object default )
 
-	object value = eu:getenv( name )
+	integer status
+	object result
 
-	if atom( value ) then
+	{status,result} = stdget:value( val )
+
+	if status != GET_SUCCESS then
+		log_warn( "Failed to parse string %s as object", {val} )
 		return default
 	end if
 
-	if as_type = AS_INTEGER then
-		value = to_integer( value )
+	return result
+end function
 
-	elsif as_type = AS_NUMBER then
-		value = to_number( value )
+--
+-- Look up an environment variable and optionally convert it to another type.
+--
+public function getenv( sequence env_name, integer env_type = AS_STRING, object default = as_default(as_type) )
+
+	log_trace( "env_name = %s", {env_name} )
+	log_trace( "env_type = %s", {env_type} )
+
+	object env_value = eu:getenv( env_name )
+
+	if atom( env_value ) then
+		log_warn( "Environment variable %s not found!", {env_name} )
+		env_value = default
+
+	elsif env_type = AS_STRING then
+		env_value = to_string( env_value )
+
+	elsif env_type = AS_INTEGER then
+		env_value = to_integer( env_value )
+
+	elsif env_type = AS_NUMBER then
+		env_value = to_number( env_value )
+
+	elsif env_type = AS_OBJECT then
+		env_value = to_object( env_value, default )
 
 	end if
 
-	return value
+	log_trace( "env_value = %s", {env_value} )
+
+	return env_value
 end function
 
 --
@@ -218,26 +275,22 @@ end function
 --
 -- Parse a variable and return its name and type.
 --
-public function parse_variable( sequence item )
+public function parse_variable( sequence var_item )
 
 	sequence var_name = ""
-	sequence var_type = ""
+	sequence var_type = "object"
 
-	if regex:is_match( re_varonly, item ) then
+	if regex:is_match( re_varonly, var_item ) then
+		{?,var_name} = regex:matches( re_varonly, var_item )
 
-		sequence matches = regex:matches( re_varonly, item )
-
-		var_name = matches[2]
-		var_type = "object"
-
-	elsif regex:is_match( re_vartype, item ) then
-
-		sequence matches = regex:matches( re_vartype, item )
-
-		var_name = matches[2]
-		var_type = matches[3]
+	elsif regex:is_match( re_vartype, var_item ) then
+		{?,var_name,var_type} = regex:matches( re_vartype, var_item )
 
 	end if
+
+	log_trace( "var_item = %s", {var_item} )
+	log_trace( "var_name = %s", {var_name} )
+	log_trace( "var_type = %s", {var_type} )
 
 	return {var_name,var_type}
 end function
@@ -245,39 +298,27 @@ end function
 --
 -- Set an outgoing header value.
 --
-public procedure header( sequence name, object value, object data = {} )
+public procedure header( sequence header_name, object header_value, object data = {} )
 
-	name = text:proper( name )
+	header_name = text:proper( header_name )
 
-	if atom( value ) then
-		value = sprint( value )
+	if atom( header_value ) then
+		header_value = sprint( header_value )
 
-	elsif string( value ) then
-		value = sprintf( value, data )
+	elsif string( header_value ) then
+		header_value = sprintf( header_value, data )
 
-	elsif sequence_array( value ) and length( value ) = 1 then
-		value = map:get( m_headers, name, {} ) & value
+	elsif sequence_array( header_value ) and length( header_value ) = 1 then
+		header_value = map:get( m_headers, header_name, {} ) & header_value
 
 	end if
 
-	map:put( m_headers, name, value )
+	map:put( m_headers, header_name, header_value )
+
+	log_trace( "header_name = %s", {header_name} )
+	log_trace( "header_value = %s", {header_value} )
 
 end procedure
-
---
--- Debugging
---
-
-ifdef DEBUG then
-
-public function crash_handler( integer param )
-
-
-	return 0 and param
-end function
-crash_routine( routine_id("crash_handler") )
-
-end ifdef
 
 --
 -- Routing
@@ -304,50 +345,70 @@ end function
 --
 -- Build a URL from a route using optional response object.
 --
-public function url_for( sequence name, object response = {} )
+public function url_for( sequence route_name, object response = {} )
 
-	sequence default = "#" & name
+	log_trace( "route_name = %s", {route_name} )
 
-	regex pattern = map:get( m_names, name, "" )
-	if length( pattern ) = 0 then return default end if
+	sequence default = "#" & route_name
 
-	sequence data = map:get( m_routes, pattern, {} )
-	if length( data ) = 0 then return default end if
+	regex pattern = map:get( m_names, route_name, "" )
+	if length( pattern ) = 0 then
+		return default
+	end if
 
-	sequence path = data[ROUTE_PATH]
+	sequence route_data = map:get( m_routes, pattern, {} )
+	if length( route_data ) = 0 then
+		return default
+	end if
+
+	sequence route_path = route_data[ROUTE_PATH]
+
+	-- TODO: this should match the parsing of route()
 
 	if map( response ) then
 
-		sequence parts = stdseq:split( path[2..$], "/" )
-		sequence varname, vartype
+		sequence parts = stdseq:split( route_path[2..$], "/" )
+		sequence var_name, var_type
 
 		for i = 1 to length( parts ) do
 			if is_variable( parts[i] ) then
 
-				{varname,vartype} = parse_variable( parts[i] )
+				{var_name,var_type} = parse_variable( parts[i] )
 
-				if length( varname ) and length( vartype ) then
-					object value = map:get( response, varname, 0 )
-					if atom( value ) then value = sprint( value ) end if
+				log_trace( "var_name = %s", {var_name} )
+				log_trace( "var_type = %s", {var_type} )
+
+				if length( var_name ) and length( var_type ) then
+					object value = map:get( response, var_name, 0 )
+
+					if atom( value ) then
+						value = sprint( value )
+					end if
+
 					parts[i] = value
 				end if
 
 			end if
 		end for
 
-		path = "/" & stdseq:join( parts, "/" )
+		route_path = "/" & stdseq:join( parts, "/" )
 
 	end if
 
-	return path
+	log_trace( "route_path = %s", {route_path} )
+
+	return route_path
 end function
 
 --
 -- Return an HTTP redirect code and a link in case that doesn't work.
 --
-public function redirect( sequence url, integer code = 302 )
+public function redirect( sequence redirect_url, integer redirect_code = 302 )
 
-	sequence message = sprintf( `Please <a href="%s">click here</a> if you are not automatically redirected.`, {url} )
+	log_trace( "redirect_url = %s", {redirect_url} )
+	log_trace( "redirect_code = %s", {redirect_code} )
+
+	sequence message = sprintf( `Please <a href="%s">click here</a> if you are not automatically redirected.`, {redirect_url} )
 
 	header( "Location", "%s", {url} )
 
@@ -374,6 +435,12 @@ public function response_code( integer code, sequence status = "", sequence mess
 	map:put( response, "message",   message )
 	map:put( response, "signature", signature )
 
+	log_trace( "code = %s", {code} )
+	log_trace( "title = %s", {title} )
+	log_trace( "status = %s", {status} )
+	log_trace( "message = %s", {message} )
+	log_trace( "signature = %s", {signature} )
+
 	header( "Status", "%d %s", {code,status} )
 
 	return parse_template( template, response )
@@ -382,22 +449,30 @@ end function
 --
 -- Convert a route path to a simple name.
 --
-public function get_route_name( sequence path )
+public function get_route_name( sequence route_path )
 
-	if equal( "*", path ) then
-		return "default"
+	log_trace( "route_path = %s" )
 
-	elsif not search:begins( "/", path ) then
-		return ""
+	sequence route_name = ""
+
+	if equal( "*", route_path ) then
+		route_name = "default"
+
+	elsif search:begins( "/", route_path ) then
+
+		sequence parts = stdseq:split( route_path[2..$], "/" )
+
+		if length( parts ) = 0 then
+			return ""
+		end if
+
+		route_name = stdseq:retain_all( "_abcdefghijklmnopqrstuvwxyz", parts[1] )
 
 	end if
 
-	sequence parts = stdseq:split( path[2..$], "/" )
-	if length( parts ) = 0 then
-		return ""
-	end if
+	log_trace( "route_name = %s", {route_name} )
 
-	return stdseq:retain_all( "_abcdefghijklmnopqrstuvwxyz", parts[1] )
+	return route_name
 end function
 
 --
@@ -615,6 +690,15 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
 	integer exit_code
 
+	add_function( "url_for", {
+		{"name"},
+		{"response",0}
+	}, routine_id("url_for") )
+
+	add_function( "get_current_route", {
+		-- no parameters
+	}, routine_id("get_current_route") )
+
 	exit_code = run_hooks( HOOK_REQUEST_START )
 	if exit_code then return "" end if
 
@@ -699,30 +783,9 @@ public function handle_request( sequence path_info, sequence request_method, seq
 	return response
 end function
 
-integer first_run = TRUE
-
 --
--- Initialize the application
+-- Format headers into one string.
 --
-public procedure init_app()
-
-	if first_run then
-
-		add_function( "url_for", {
-			{"name"},
-			{"response",0}
-		}, routine_id("url_for") )
-
-		add_function( "get_current_route", {
-			-- no parameters
-		}, routine_id("get_current_route") )
-
-		first_run = FALSE
-
-	end if
-
-end procedure
-
 public function format_headers( map headers )
 
 	integer exit_code = 0
@@ -772,8 +835,6 @@ public procedure run()
 	if equal( request_method, "POST" ) and content_length != 0 then
 		query_string = get_bytes( STDIN, content_length )
 	end if
-
-	init_app()
 
 	sequence response = handle_request( path_info, request_method, query_string )
 	sequence headers = format_headers( m_headers )
