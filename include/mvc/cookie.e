@@ -5,7 +5,8 @@ include std/datetime.e
 include std/map.e
 include std/text.e
 
-include mvc/app.e
+include mvc/headers.e
+include mvc/utils.e
 
 map m_cookie
 
@@ -16,7 +17,7 @@ public procedure parse_cookie()
 
     if not object( m_cookie ) then
 
-        sequence http_cookie = app:getenv( "HTTP_COOKIE" )
+        sequence http_cookie = getenv( "HTTP_COOKIE" )
         sequence cookie_pairs = keyvalues( http_cookie, ";", "=", "\"" )
 
         m_cookie = map:new_from_kvpairs( cookie_pairs )

@@ -3,7 +3,6 @@ namespace app
 
 include std/convert.e
 include std/error.e
-include std/get.e
 include std/map.e
 include std/io.e
 include std/pretty.e
@@ -15,8 +14,11 @@ include std/text.e
 include std/types.e
 include std/utils.e
 
-include mvc/logger.e
-include mvc/template.e
+public include mvc/logger.e
+public include mvc/hooks.e
+public include mvc/headers.e
+public include mvc/template.e
+public include mvc/utils.e
 
 --
 -- Debugging
@@ -70,9 +72,6 @@ export map m_names = map:new()
 
 -- pattern -> data storage
 export map m_routes = map:new()
-
--- name -> value headers
-export map m_headers = map:new()
 
 --
 -- HTTP Status Codes
@@ -195,73 +194,6 @@ public procedure set_error_page( integer error_code, sequence error_page )
 end procedure
 
 --
--- Better environment variables
---
-
-public enum
-	AS_STRING = 0, -- basically does nothing, environment variables are already strings
-	AS_INTEGER,    -- converts string to integer
-	AS_NUMBER,     -- converts string to atom
-	AS_OBJECT      -- converts string to object, e.g. "{1,2,3}" -> {1,2,3}
-
-function as_default( integer as_type )
-
-	if as_type = AS_STRING then
-		return ""
-	end if
-
-	return 0
-end function
-
-function to_object( object val, object default )
-
-	integer status
-	object result
-
-	{status,result} = stdget:value( val )
-
-	if status != GET_SUCCESS then
-		log_warn( "Failed to parse string %s as object", {val} )
-		return default
-	end if
-
-	return result
-end function
-
---
--- Look up an environment variable and optionally convert it to another type.
---
-public function getenv( sequence env_name, integer env_type = AS_STRING, object default = as_default(env_type) )
-
-	log_trace( "env_name = %s", {env_name} )
-	log_trace( "env_type = %s", {env_type} )
-
-	object env_value = eu:getenv( env_name )
-
-	if atom( env_value ) then
-		log_warn( "Environment variable %s not found!", {env_name} )
-		env_value = default
-
-	elsif env_type = AS_STRING then
-		env_value = to_string( env_value )
-
-	elsif env_type = AS_INTEGER then
-		env_value = to_integer( env_value )
-
-	elsif env_type = AS_NUMBER then
-		env_value = to_number( env_value )
-
-	elsif env_type = AS_OBJECT then
-		env_value = to_object( env_value, default )
-
-	end if
-
-	log_trace( "env_value = %s", {env_value} )
-
-	return env_value
-end function
-
---
 -- Variables
 --
 
@@ -295,31 +227,6 @@ public function parse_variable( sequence var_item )
 
 	return {var_name,var_type}
 end function
-
---
--- Set an outgoing header value.
---
-public procedure header( sequence header_name, object header_value, object data = {} )
-
-	header_name = text:proper( header_name )
-
-	if atom( header_value ) then
-		header_value = sprint( header_value )
-
-	elsif string( header_value ) then
-		header_value = sprintf( header_value, data )
-
-	elsif sequence_array( header_value ) and length( header_value ) = 1 then
-		header_value = map:get( m_headers, header_name, {} ) & header_value
-
-	end if
-
-	map:put( m_headers, header_name, header_value )
-
-	log_trace( "header_name = %s", {header_name} )
-	log_trace( "header_value = %s", {header_value} )
-
-end procedure
 
 --
 -- Routing
@@ -417,7 +324,7 @@ public function redirect( sequence redirect_url, integer redirect_code = 302 )
 end function
 
 --
--- Return a response codw with optional status (the descrption) and message (displayed on the page).
+-- Return a response code with optional status (the description) and message (displayed on the page).
 --
 public function response_code( integer code, sequence status = "", sequence message = "" )
 
@@ -571,73 +478,6 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
 
 end procedure
 
---
--- Hooks
---
-
-enum
-	HOOK_NAME,
-	HOOK_LIST
-
-sequence m_hooks = {}
-
-public constant
-	HOOK_APP_START      = new_hook_type( "app_start"      ),
-	HOOK_APP_END        = new_hook_type( "app_end"        ),
-	HOOK_REQUEST_START  = new_hook_type( "request_start"  ),
-	HOOK_REQUEST_END    = new_hook_type( "request_end"    ),
-	HOOK_HEADERS_START  = new_hook_type( "headers_start"  ),
-	HOOK_HEADERS_END    = new_hook_type( "headers_end"    ),
-	HOOK_RESPONSE_START = new_hook_type( "response_start" ),
-	HOOK_RESPONSE_END   = new_hook_type( "response_end"   ),
-$
-
---
--- Add new hook type.
---
-public function new_hook_type( sequence name )
-
-	sequence list = {}
-	m_hooks = append( m_hooks, {name,list} )
-
-	return length( m_hooks )
-end function
-
---
--- Return a hook name.
---
-public function get_hook_name( integer hook_type )
-	return m_hooks[hook_type][HOOK_NAME]
-end function
-
---
--- Insert a new hook.
---
-public procedure insert_hook( integer hook_type, sequence func_name = get_hook_name(hook_type), integer func_id = routine_id(func_name) )
-	m_hooks[hook_type][HOOK_LIST] = append( m_hooks[hook_type][HOOK_LIST], {func_name,func_id} )
-end procedure
-
---
--- Run a list of hooks.
---
-public function run_hooks( integer hook_type )
-
-	object func_name, func_id
-	integer exit_code = 0
-
-	sequence hook_name = m_hooks[hook_type][HOOK_NAME]
-	sequence hook_list = m_hooks[hook_type][HOOK_LIST]
-
-	for i = 1 to length( hook_list ) do
-		{func_name,func_id} = hook_list[i]
-
-		exit_code = call_func( func_id, {} )
-		if exit_code then exit end if
-
-	end for
-
-	return exit_code
-end function
 
 --
 -- Requests
@@ -785,40 +625,6 @@ public function handle_request( sequence path_info, sequence request_method, seq
 end function
 
 --
--- Format headers into one string.
---
-public function format_headers( map headers )
-
-	integer exit_code = 0
-	sequence headers_data = ""
-
-	exit_code = run_hooks( HOOK_HEADERS_START )
-	if exit_code then return "" end if
-
-	sequence keys = map:keys( headers )
-
-	for i = 1 to length( keys ) do
-
-		object value = map:get( headers, keys[i] )
-
-		if sequence_array( value ) then
-			for j = 1 to length( value ) do
-				headers_data &= sprintf( "%s: %s\r\n", {keys[i],value[j]} )
-			end for
-		else
-			if atom( value ) then value = sprint( value ) end if
-			headers_data &= sprintf( "%s: %s\r\n", {keys[i],value} )
-		end if
-
-	end for
-
-	exit_code = run_hooks( HOOK_HEADERS_END )
-	if exit_code then return "" end if
-
-	return headers_data
-end function
-
---
 -- Entry point for the application. Performs basic setup and calls handle_request().
 --
 public procedure run()
@@ -838,13 +644,13 @@ public procedure run()
 	end if
 
 	sequence response = handle_request( path_info, request_method, query_string )
-	sequence headers = format_headers( m_headers )
+	sequence headers = format_headers()
 
 	puts( STDOUT, headers )
 	puts( STDOUT, "\r\n" )
 	puts( STDOUT, response )
 
-	map:remove( m_headers, "Status" )
+	unset_header( "Status" )
 
 	exit_code = run_hooks( HOOK_APP_END )
 	if exit_code then return end if

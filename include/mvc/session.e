@@ -8,6 +8,7 @@ include std/map.e
 
 include mvc/app.e
 include mvc/cookie.e
+include mvc/hooks.e
 
 constant SESSION_CHARS = "abcdefghijklmnopqrstuvwxyz" &
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
