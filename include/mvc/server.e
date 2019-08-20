@@ -1,6 +1,7 @@
 
 namespace server
 
+include std/console.e
 include std/map.e
 include std/sequence.e
 include std/socket.e as socket
@@ -12,8 +13,10 @@ include std/dll.e
 include std/machine.e
 end ifdef
 
-include mvc/app.e
 include mvc/logger.e
+include mvc/app.e
+include mvc/headers.e
+include mvc/hooks.e
 
 constant DEFAULT_ADDR = "127.0.0.1"
 constant DEFAULT_PORT = 5000
@@ -57,7 +60,6 @@ end procedure
 
 public procedure client_handler( socket client_sock, sequence client_addr )
 
-	integer exit_code = 0
 	object request_data = socket:receive( client_sock )
 
 	if atom( request_data ) then
@@ -69,85 +71,83 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 	log_trace( "received_bytes = %d", {received_bytes} )
 
 	request_data = split( request_data, "\r\n" )
-	request_data[1] = split( request_data[1], " " ) -- e.g. {"HTTP/1.1","GET","/path"}
 
-	sequence path_info      = request_data[1][2]
-	sequence request_method = request_data[1][1]
-	sequence query_string   = "" -- FIXME
+	sequence request_info = split( request_data[1], " " ) -- e.g. {"HTTP/1.1","GET","/path"}
+	log_trace( "request_info = %s", {request_info} )
 
-	log_trace( "path_info = %s", {path_info} )
+	sequence request_method = request_info[1]
+	sequence path_info      = request_info[2]
+	sequence query_string   = ""
+
+	if match( "?", path_info ) then
+		{path_info,query_string} = split( path_info, "?" )
+	end if
+
 	log_trace( "request_method = %s", {request_method} )
+	log_trace( "path_info = %s", {path_info} )
 	log_trace( "query_string = %s", {query_string} )
 
 	sequence response_data = handle_request( path_info, request_method, query_string )
 
-	exit_code = run_hooks( HOOK_HEADERS_START )
-	if exit_code then return end if
+	if run_hooks( HOOK_HEADERS_START ) then
+		socket:close( client_sock )
+		return
+	end if
 
-	sequence status = map:get( m_headers, "Status", "200 OK" )
-	sequence headers = format_headers( m_headers )
+	sequence status = get_header( "Status", "200 OK" )
+	sequence headers = format_headers()
+	unset_header( "Status" )
 
 	log_trace( "status = %s", {status} )
 	log_trace( "headers = %s", {headers} )
 
 	log_info( "%s %s %s %s", {client_addr,request_method,path_info,status} )
 
-	map:remove( m_headers, "Status" )
-
-	exit_code = run_hooks( HOOK_HEADERS_END )
-	if exit_code then return end if
+	if run_hooks( HOOK_HEADERS_END ) then
+		socket:close( client_sock )
+		return
+	end if
 
 	integer sent_bytes = socket:send( client_sock,
 		"HTTP/1.1 " & status & "\r\n" &
 		headers & "\r\n" & response_data
 	)
-	
+
 	log_trace( "sent_bytes = %d", {sent_bytes} )
-	
+
 	if sent_bytes = -1 then
 		log_error( "Could not send response data (%d)", socket:error_code() )
 	end if
 
+	socket:close( client_sock )
+	log_debug( "Closed connection from %s", {client_addr} )
+
 end procedure
 
-public procedure run_server( sequence listen_addr, integer listen_port )
-
-	integer exit_code = 0
-	socket server_sock = socket:create( AF_INET, SOCK_STREAM, PROTOCOL_NONE )
+public function create_server( sequence listen_addr, integer listen_port )
 
 	log_info( "Euphoria MVC Development Server" )
 
+	object server_sock = socket:create( AF_INET, SOCK_STREAM, PROTOCOL_NONE )
+
 	if atom( server_sock ) then
 		log_error( "Could not create server socket (%d)", socket:error_code() )
-		return
+		return 0
 	end if
 
 	log_debug( "Created server socket" )
 
 	if socket:bind( server_sock, listen_addr, listen_port ) != OK then
 		log_error( "Could not bind server socket (%d)", socket:error_code() )
-		return
+		return 0
 	end if
 
 	if socket:listen( server_sock, SOCKET_BACKLOG ) != OK then
 		log_error( "Could not listen on server socket (%d)", socket:error_code() )
-		return
+		return 0
 	end if
 
 	log_debug( "Listening on %s:%d", {listen_addr,listen_port} )
-
-	exit_code = run_hooks( HOOK_APP_START )
-	if exit_code then return end if
-
-	sequence url = sprintf( "http://%s:%d", {listen_addr,listen_port} )
-	log_info( "Running on %s", {url} )
-
-ifdef LAUNCH_URL then
-
-	log_debug( "Launching %s", {url} )
-	start_url( url )
-
-end ifdef
 
 	allow_break( FALSE )
 	m_server_running = TRUE
@@ -155,48 +155,85 @@ end ifdef
 	log_info( "Press Ctrl+C to quit" )
 	log_debug( "Waiting for client..." )
 
-	while m_server_running do
+	return server_sock
+end function
 
-		sequence result = socket:select( server_sock, {}, {}, 0, 100 )
+public function server_loop( object server_sock )
 
-		if result[1][SELECT_IS_READABLE] then
+	if not m_server_running then
+		log_error( "Server not started!" )
+		return FALSE
+	end if
 
-			object client_info = socket:accept( server_sock )
+	sequence result = socket:select( server_sock, {}, {}, 0, 100 )
 
-			if atom( client_info ) then
-				log_error( "Could not accept client socket (%d)", socket:error_code() )
-				continue
-			end if
+	if result[1][SELECT_IS_READABLE] then
+
+		object client_info = socket:accept( server_sock )
+
+		if atom( client_info ) then
+
+			log_error( "Could not accept client socket (%d)", socket:error_code() )
+
+		else
 
 			log_debug( "Accepted connection from %s", {client_info[2]} )
-
 			client_handler( client_info[1], client_info[2] )
-			socket:close( client_info[1] )
-
-			log_debug( "Closed connection from %s", {client_info[2]} )
-			log_debug( "Waiting for client..." )
 
 		end if
 
-		if check_break() then
-			log_info( "Ctrl+C triggered shutdown" )
-			m_server_running = FALSE
-		end if
+	end if
 
+	if check_break() then
+
+		log_info( "Ctrl+C triggered shutdown" )
+		m_server_running = FALSE
+
+	end if
+
+	return m_server_running
+end function
+
+public procedure start( sequence listen_addr = DEFAULT_ADDR, integer listen_port = DEFAULT_PORT )
+
+	object server_sock = create_server( listen_addr, listen_port )
+
+	if run_hooks( HOOK_APP_START ) then
+		socket:close( server_sock )
+		return
+	end if
+
+	m_server_running = TRUE
+
+	sequence url = sprintf( "http://%s:%d", {listen_addr,listen_port} )
+	log_info( "Running on %s", {url} )
+
+ifdef AUTO_LAUNCH then
+
+	log_debug( "Launching %s", {url} )
+	start_url( url )
+
+end ifdef
+
+	while server_loop( server_sock ) do
 		task_yield()
-
 	end while
 
-	exit_code = run_hooks( HOOK_APP_END )
-	if exit_code then return end if
+	if run_hooks( HOOK_APP_END ) then
+		socket:close( server_sock )
+		return
+	end if
 
+	socket:shutdown( server_sock )
 	socket:close( server_sock )
+
 	log_debug( "Closed server socket" )
 
 end procedure
 
-public procedure start( sequence listen_addr = DEFAULT_ADDR, integer listen_port = DEFAULT_PORT )
+public procedure stop()
 
-	run_server( listen_addr, listen_port )
+	m_server_running = FALSE
 
 end procedure
+

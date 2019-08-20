@@ -1,3 +1,4 @@
+
 namespace config
 
 include std/convert.e
