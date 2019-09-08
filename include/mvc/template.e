@@ -123,7 +123,7 @@ public procedure add_function( sequence func_name, sequence params = {}, integer
 
     if not map:has( m_functions, func_name ) then
 		map:put( m_functions, func_name, {params,func_id} )
-		log_debug( "Registered function %s at routine id %d", {func_name,func_id} )
+		log_debug( "Registered function %s with params %s at routine id %d", {func_name,params,func_id} )
 	end if
 
 end procedure
@@ -240,6 +240,26 @@ end function
 function _xor( object a, object b )
 	return a xor b
 end function
+
+--
+-- pretty()
+--
+function _pretty( object x, object p )
+	return pretty_sprint( x, p )
+end function
+
+add_function( "atom",      {"x"},     routine_id("_atom") )
+add_function( "integer",   {"x"},     routine_id("_integer") )
+add_function( "sequence",  {"x"},     routine_id("_sequence") )
+add_function( "object",    {"x"},     routine_id("_object") )
+add_function( "equal",     {"a","b"}, routine_id("_equal") )
+add_function( "not_equal", {"a","b"}, routine_id("_not_equal") )
+add_function( "length",    {"x"},     routine_id("_length") )
+add_function( "not",       {"x"},     routine_id("_not") )
+add_function( "and",       {"a","b"}, routine_id("_and") )
+add_function( "or",        {"a","b"}, routine_id("_or") )
+add_function( "xor",       {"a","b"}, routine_id("_xor") )
+add_function( "pretty",    {"x",{"p",PRETTY_DEFAULT}}, routine_id("_pretty") )
 
 --
 -- Template token lexer.
@@ -515,7 +535,7 @@ public function render_if( sequence tree, integer i, object response )
 	return {output,i}
 end function
 
-constant re_foritem   = regex:new( `^(\w+)\s+in\s+(\w+)$` )
+constant re_foritem   = regex:new( `^(\w+)\s+in\s+([\w\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
 constant re_forloop   = regex:new( `^(\w+)\s+=\s+(\w+)\s+to\s+(\w+)$` )
 constant re_forloopby = regex:new( `^(\w+)\s+=\s+(\w+)\s+to\s+(\w+)\s+by\s+(\w+)$` )
 
@@ -542,6 +562,7 @@ public function render_for( sequence tree, integer i, object response )
 		end if
 
 		sequence item_name = matches[2]
+		integer previous_index = map:get( response, "current_index", 0 )
 
 		for j = 1 to length( list_value ) do
 			map:put( response, "current_index", j )
@@ -555,8 +576,13 @@ public function render_for( sequence tree, integer i, object response )
 
 		end for
 
-		map:remove( response, "current_index" )
 		map:remove( response, item_name )
+
+		if previous_index != 0 then
+			map:put( response, "current_index", previous_index )
+		else
+			map:remove( response, "current_index" )
+		end if
 
 	elsif regex:is_match( re_forloop, data ) then
 		-- parse 'for i = m to n' block
@@ -776,18 +802,6 @@ public function render_template( sequence filename, object response = {} )
 		log_error( "could not read template: %s", {filename} )
 		error:crash( "could not read template: %s", {filename} )
 	end if
-
-	add_function( "atom",      {"x"},     routine_id("_atom") )
-	add_function( "integer",   {"x"},     routine_id("_integer") )
-	add_function( "sequence",  {"x"},     routine_id("_sequence") )
-	add_function( "object",    {"x"},     routine_id("_object") )
-	add_function( "equal",     {"a","b"}, routine_id("_equal") )
-	add_function( "not_equal", {"a","b"}, routine_id("_not_equal") )
-	add_function( "length",    {"x"},     routine_id("_length") )
-	add_function( "not",       {"x"},     routine_id("_not") )
-	add_function( "and",       {"a","b"}, routine_id("_and") )
-	add_function( "or",        {"a","b"}, routine_id("_or") )
-	add_function( "xor",       {"a","b"}, routine_id("_xor") )
 
 	return parse_template( text, response )
 end function
