@@ -6,9 +6,12 @@ include std/error.e
 include std/map.e
 include std/math.e
 include std/pretty.e
+include std/search.e
 include std/sequence.e
+include std/text.e
 include std/types.e
 
+include mvc/logger.e
 include mvc/database.e
 
 sequence model_names = {}
@@ -155,6 +158,8 @@ public function define( sequence model_name, sequence field_list )
     model_names = append( model_names, model_name )
     model_fields = append( model_fields, field_list )
 
+    log_debug( "Registered model %s with fields %s", {model_name,vslice(field_list,1)} )
+
     return length( model_names )
 end function
 
@@ -167,7 +172,11 @@ public function init( integer model_type )
     sequence model_name = model_names[model_type]
     sequence field_list = model_fields[model_type]
 
-    atom result = db_query( "SELECT 1 FROM `%s` LIMIT 1", {model_name} )
+	atom result = db_query( """
+		SELECT 1
+		  FROM `%s`
+		 LIMIT 1
+	""", {model_name} )
 
     if result != -1 then
         return TRUE
@@ -278,19 +287,47 @@ public procedure set( object model, sequence name, object value )
 
 end procedure
 
-public function count_of( integer model_type, sequence query = "TRUE", object params = {} )
+public function fixup_query( sequence query, object params = {} )
+
+	if length( query ) = 0 then
+		return "WHERE TRUE"
+	end if
+
+	query = text:trim( query )
+	sequence first_word = ""
+
+	integer space = find( ' ', query )
+	if space then
+		first_word = text:upper( query[1..space-1] )
+	end if
+
+	if not find( first_word, {"SELECT","WHERE","ORDER","GROUP","LIMIT"} ) then
+		query = "WHERE " & query
+	end if
+
+	query = find_replace( '\t', query, ' ' )
+	query = find_replace( '\r', query, ' ' )
+	query = find_replace( '\n', query, ' ' )
+	query = match_replace( "   ", query, " " )
+	query = match_replace( "  ", query, " " )
+
+	return sprintf( query, params )
+end function
+
+public function count_of( integer model_type, sequence query = "", object params = {} )
 
     if not valid_id( model_type ) then
         error:crash( "invalid model type: %d", {model_type} )
     end if
 
     sequence model_name = model_names[model_type]
+    sequence fixed_query = fixup_query( query, params )
 
-    if not equal( params, {} ) then
-        query = sprintf( query, params )
-    end if
-    
-	atom result = db_query( "SELECT COUNT(*) FROM %s WHERE %s", {model_name,query} )
+	atom result = db_query( """
+		SELECT COUNT(*) AS count
+		  FROM `%s`
+		  %s
+	""", {model_name,fixed_query} )
 
 	if result = -1 then
 		return -1
@@ -301,7 +338,7 @@ public function count_of( integer model_type, sequence query = "TRUE", object pa
 	return to_integer( row_data[1] )
 end function
 
-public function do_fetch( integer model_type, sequence query )
+public function do_fetch( integer model_type, sequence query, object params )
 
     if not valid_id( model_type ) then
         error:crash( "invalid model type: %d", {model_type} )
@@ -310,26 +347,21 @@ public function do_fetch( integer model_type, sequence query )
     sequence model_name = model_names[model_type]
     sequence field_list = model_fields[model_type]
 
-    sequence column_names = {}
-    sequence column_types = {}
+    sequence column_names = vslice( field_list, FIELD_NAME )
+    sequence column_types = vslice( field_list, FIELD_TYPE )
 
-    for i = 1 to length( field_list ) do
+    sequence columns = "`" & stdseq:join( column_names, "`,`" ) & "`"
+    sequence fixed_query = fixup_query( query, params )
 
-        sequence column_name = field_list[i][FIELD_NAME]
-        integer  column_type = field_list[i][FIELD_TYPE]
+    atom result = db_query( """
+		SELECT %s
+		  FROM `%s`
+		  %s
+	""", {columns,model_name,fixed_query} )
 
-        if find( column_name, {MODEL_NAME,MODEL_TYPE} ) then
-            continue
-        end if
-
-        column_names = append( column_names, column_name )
-        column_types = append( column_types, column_type )
-
-    end for
-
-    sequence columns = stdseq:join( column_names, ", " )
-
-    atom result = db_query( "SELECT %s FROM %s WHERE %s", {columns,model_name,query} )
+    if result = -1 then
+        log_error( "Error: " & db_error() )
+    end if
 
     return {result,column_names,column_types}
 end function
@@ -340,21 +372,19 @@ public function fetch_one( integer model_type, sequence query, object params = {
     sequence column_names
     sequence column_types
 
-    if not equal( params, {} ) then
-        query = sprintf( query, params )
-    end if
-
-    {result,column_names,column_types} = do_fetch( model_type, query )
+    {result,column_names,column_types} = do_fetch( model_type, query, params )
 
     if result = -1 then
         return 0
     end if
 
-    object model = model:new( model_type )
-    sequence row_data = db_fetch()
+    sequence row_data = db_fetch( result )
+
     if length( row_data ) = 0 then
         return 0
     end if
+
+    object model = model:new( model_type )
 
     for i = 1 to length( column_names ) do
 
@@ -362,10 +392,10 @@ public function fetch_one( integer model_type, sequence query, object params = {
         integer  field_type = column_types[i]
         object field_value = row_data[i]
 
-        if field_type = INTEGER then
+        if and_bits( field_type, TYPE_MASK ) = INTEGER then
             field_value = to_integer( field_value )
 
-        elsif field_type = REAL then
+        elsif and_bits( field_type, TYPE_MASK ) = REAL then
             field_value = to_number( field_value )
 
         end if
@@ -374,27 +404,25 @@ public function fetch_one( integer model_type, sequence query, object params = {
 
     end for
 
+    db_free( result )
+
     return model
 end function
 
-public function fetch_all( integer model_type, sequence query, object params = {} )
+public function fetch_all( integer model_type, sequence query = "", object params = {} )
 
     atom result
     sequence column_names
     sequence column_types
 
-    if not equal( params, {} ) then
-        query = sprintf( query, params )
-    end if
-
-    {result,column_names,column_types} = do_fetch( model_type, query )
+    {result,column_names,column_types} = do_fetch( model_type, query, params )
 
     if result = -1 then
         return {}
     end if
 
     sequence models = {}
-    sequence row_data = db_fetch()
+    sequence row_data = db_fetch( result )
 
     while length( row_data ) do
 
@@ -406,10 +434,10 @@ public function fetch_all( integer model_type, sequence query, object params = {
             integer  field_type = column_types[i]
             object field_value = row_data[i]
 
-            if field_type = INTEGER then
+            if and_bits( field_type, TYPE_MASK ) = INTEGER then
                 field_value = to_integer( field_value )
 
-            elsif field_type = REAL then
+            elsif and_bits( field_type, TYPE_MASK ) = REAL then
                 field_value = to_number( field_value )
 
             end if
@@ -420,8 +448,10 @@ public function fetch_all( integer model_type, sequence query, object params = {
 
         models = append( models, model )
 
-       row_data = db_fetch()
+        row_data = db_fetch( result )
     end while
+
+    db_free( result )
 
     return models
 end function
