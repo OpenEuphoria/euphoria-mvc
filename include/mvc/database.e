@@ -4,7 +4,11 @@ namespace database
 include std/map.e
 include std/net/url.e
 include std/pretty.e
+include std/search.e
+include std/text.e
 include std/types.e
+
+include mvc/logger.e
 
 public enum
 -- handler ids
@@ -13,7 +17,8 @@ public enum
     DB_TABLE_EXISTS,
     DB_QUERY,
     DB_FETCH,
-	DB_ERROR,
+    DB_FREE,
+    DB_ERROR,
     DB_LAST = DB_ERROR
 
 constant DEFAULT_TIMEOUT = 5000
@@ -34,7 +39,7 @@ atom current_conn = 0
 --
 -- keep track of the current result
 --
-atom current_result = 0
+map m_current_result = map:new()
 
 --
 -- add a new protocol handler
@@ -62,7 +67,17 @@ end procedure
 public function db_connect( sequence url, integer timeout = DEFAULT_TIMEOUT )
 
     sequence parts = url:parse( url )
-    object proto = parts[1]
+    object proto = parts[URL_PROTOCOL]
+
+    sequence masked_url = url
+    object password = parts[URL_PASSWORD]
+
+    if sequence( password ) then
+        sequence password_mask = repeat( '*', length(password) )
+        masked_url = match_replace( password, masked_url, password_mask )
+    end if
+
+    log_debug( "url = %s, timeout = %d", {masked_url,timeout} )
 
     integer proto_id = find( proto, protocols )
     if proto_id = 0 then return 0 end if
@@ -120,10 +135,17 @@ public function db_query( sequence query, object params = {}, atom conn = curren
     integer rtn_id = handlers[proto_id][DB_QUERY]
     if rtn_id = -1 then return 0 end if
 
+    query = find_replace( '\t', query, ' ' )
+    query = find_replace( '\r', query, ' ' )
+    query = find_replace( '\n', query, ' ' )
+    query = match_replace( "   ", query, " " )
+    query = match_replace( "  ", query, " " )
+    query = text:trim( query )
+
     atom result = call_func( rtn_id, {conn,query,params} )
 
     if result then
-        current_result = result
+        map:put( m_current_result, conn, result )
     end if
 
     return result
@@ -132,7 +154,7 @@ end function
 --
 -- fetch the next row
 --
-public function db_fetch( atom result = current_result, atom conn = current_conn )
+public function db_fetch( atom result = map:get(m_current_result,current_conn), atom conn = current_conn )
 
     integer proto_id = map:get( m_conn, conn, -1 )
     if proto_id = -1 then return 0 end if
@@ -142,6 +164,21 @@ public function db_fetch( atom result = current_result, atom conn = current_conn
 
     return call_func( rtn_id, {conn,result} )
 end function
+
+--
+-- free the current result
+--
+public procedure db_free( atom result = map:get(m_current_result,current_conn), atom conn = current_conn )
+
+    integer proto_id = map:get( m_conn, conn, -1 )
+    if proto_id = -1 then return end if
+
+    integer rtn_id = handlers[proto_id][DB_FREE]
+    if rtn_id = -1 then return end if
+
+    call_proc( rtn_id, {conn,result} )
+
+end procedure
 
 --
 -- return the last error from the database

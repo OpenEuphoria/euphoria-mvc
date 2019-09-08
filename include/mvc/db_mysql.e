@@ -1,15 +1,20 @@
 namespace db_mysql
 
-include db/mysql.e
 include std/dll.e
 include std/machine.e
+include std/map.e
 include std/net/url.e
 include std/pretty.e
 include std/search.e
 include std/types.e
+
+include db/mysql.e
 include mvc/database.e
+include mvc/logger.e
 
 constant MYSQL = add_protocol( "mysql" )
+
+map m_valid_result = map:new()
 
 function _connect( sequence url, integer timeout )
 
@@ -56,11 +61,25 @@ function _query( atom mysql, sequence stmt, object params )
 		return -1
 	end if
 
-	if search:begins( "SELECT ", stmt ) then
-        return mysql_store_result( mysql )
+	atom result, rows
+
+    if search:begins( "SELECT ", stmt ) then
+        result = mysql_store_result( mysql )
+        rows = mysql_num_rows( result )
+
+    else
+        result = 0
+        rows = mysql_affected_rows( mysql )
+
     end if
     
-    return 0
+    log_debug( "stmt = %s, rows = %d", {stmt,rows} )
+
+    if result then
+        map:put( m_valid_result, result, TRUE )
+    end if
+
+    return result
 end function
 add_handler( MYSQL, DB_QUERY, routine_id("_query") )
 
@@ -68,13 +87,24 @@ function _fetch( atom mysql, atom result )
 
     sequence row = mysql_fetch_row( result )
 
-    if length( row ) = 0 then
-        mysql_free_result( result )
-    end if
+--  if length( row ) = 0 then
+--      map:remove( m_valid_result, result )
+--      mysql_free_result( result )
+--  end if
 
     return row
 end function
 add_handler( MYSQL, DB_FETCH, routine_id("_fetch") )
+
+procedure _free( atom mysql, atom result )
+
+    if map:has( m_valid_result, result ) then
+        map:remove( m_valid_result, result )
+        mysql_free_result( result )
+    end if
+
+end procedure
+add_handler( MYSQL, DB_FREE, routine_id("_free") )
 
 function _error( atom mysql )
 	return mysql_error( mysql )

@@ -241,6 +241,7 @@ constant
 	_mysql_init                     = define_c_func( libmysql, "mysql_init", {C_POINTER}, C_POINTER ),
 	_mysql_insert_id                = define_c_func( libmysql, "mysql_insert_id", {C_POINTER}, C_LONGLONG ),
 	_mysql_num_fields               = define_c_func( libmysql, "mysql_num_fields", {C_POINTER}, C_UINT ),
+	_mysql_num_rows                 = define_c_func( libmysql, "mysql_num_rows", {C_POINTER}, C_LONGLONG ),
 	_mysql_options                  = define_c_func( libmysql, "mysql_options", {C_POINTER,C_INT,C_POINTER}, C_INT ),
 	_mysql_query                    = define_c_func( libmysql, "mysql_query", {C_POINTER,C_STRING}, C_INT ),
 	_mysql_real_connect             = define_c_func( libmysql, "mysql_real_connect", {C_POINTER,C_STRING,C_STRING,C_STRING,C_STRING,C_UINT,C_STRING,C_ULONG}, C_POINTER ),
@@ -349,31 +350,24 @@ end function
 
 public function mysql_fetch_row( atom result )
 
-	atom row = c_func( _mysql_fetch_row, {result} )
-	if row = NULL then return {} end if
+	atom row_ptr = c_func( _mysql_fetch_row, {result} )
+	if row_ptr = 0 then return {} end if
 
-	atom lengths = c_func( _mysql_fetch_lengths, {result} )
-	if lengths = NULL then return {} end if
+	atom len_ptr = c_func( _mysql_fetch_lengths, {result} )
+	if len_ptr = 0 then return {} end if
 
 	atom num_fields = c_func( _mysql_num_fields, {result} )
+	if num_fields = 0 then return {} end if
+
+	sequence fields = peek_pointer({ row_ptr, num_fields })
+	sequence lengths = peek4u({ len_ptr, num_fields })
+
 	sequence data = repeat( NULL, num_fields )
 
-	atom row_ptr = row
-	atom len_ptr = lengths
-
 	for i = 1 to num_fields do
-
-		object str = peek_pointer( row_ptr )
-		if str != NULL then
-			atom len = peek4u( len_ptr )
-			str = peek({ str, len })
+		if fields[i] != NULL then
+			data[i] = peek({ fields[i], lengths[i] })
 		end if
-
-		data[i] = str
-
-		row_ptr += sizeof( C_POINTER )
-		len_ptr += sizeof( C_ULONG )
-
 	end for
 
 	return data
@@ -445,6 +439,10 @@ end function
 
 public function mysql_num_fields( atom result )
 	return c_func( _mysql_num_fields, {result} )
+end function
+
+public function mysql_num_rows( atom result )
+	return c_func( _mysql_num_rows, {result} )
 end function
 
 public function mysql_options( atom mysql, integer option, atom arg )
