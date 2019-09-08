@@ -236,6 +236,7 @@ enum
 	ROUTE_PATH,
 	ROUTE_NAME,
 	ROUTE_VARS,
+	ROUTE_METHODS,
 	ROUTE_RID
 
 --
@@ -386,7 +387,7 @@ end function
 --
 -- Assign a route path to a handler function.
 --
-public procedure route( sequence path, sequence name = get_route_name(path), integer func_id = routine_id(name) )
+public procedure route( sequence path, sequence name = get_route_name(path), sequence methods = {"GET"}, integer func_id = routine_id(name) )
 
 	if func_id = -1 then
 		log_error( "route function '%s' not found", {name} )
@@ -472,9 +473,9 @@ public procedure route( sequence path, sequence name = get_route_name(path), int
 	pattern = regex:new( pattern )
 
 	map:put( m_names, name, pattern )
-	map:put( m_routes, pattern, {path,name,vars,func_id} )
+	map:put( m_routes, pattern, {path,name,vars,methods,func_id} )
 
-	log_debug( "Registered route %s with path %s", {name,path} )
+	log_debug( "Registered route %s with path %s and methods", {name,path,methods} )
 
 end procedure
 
@@ -546,8 +547,8 @@ public function handle_request( sequence path_info, sequence request_method, seq
 	for i = 1 to length( patterns ) do
 		sequence pattern = patterns[i]
 
-		object path, name, vars, func_id
-		{path,name,vars,func_id} = map:get( m_routes, pattern )
+		object path, name, vars, methods, func_id
+		{path,name,vars,methods,func_id} = map:get( m_routes, pattern )
 
 		if equal( "*", path ) then
 			default_route = i
@@ -556,6 +557,10 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
 		if not regex:is_match( pattern, path_info ) then
 			continue
+		end if
+
+		if not find( request_method, methods ) then
+			return response_code( 405 ) -- invalid method
 		end if
 
 		sequence matches = regex:matches( pattern, path_info )
