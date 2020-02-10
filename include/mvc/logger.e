@@ -44,6 +44,7 @@ log_color[LOG_TRACE] = BLUE
 constant DEFAULT_DATE_COLOR  = GRAY
 constant DEFAULT_DATE_FORMAT = "%Y/%m/%d %H:%M:%S"
 constant DEFAULT_STACK_COLOR = MAGENTA
+constant DEFAULT_STACK_INDENT = FALSE
 constant DEFAULT_LOG_COLOR   = WHITE
 constant DEFAULT_LOG_OUTPUT = {STDERR}
 
@@ -82,15 +83,16 @@ end ifdef
 integer  m_date_color   = DEFAULT_DATE_COLOR
 sequence m_date_format  = DEFAULT_DATE_FORMAT
 integer  m_stack_color  = DEFAULT_STACK_COLOR
+integer  m_stack_indent = DEFAULT_STACK_INDENT
 integer  m_log_color    = DEFAULT_LOG_COLOR
-integer  m_log_verbose  = DEFAULT_LOG_VERBOSE
 integer  m_log_level    = DEFAULT_LOG_LEVEL
+integer  m_log_verbose  = DEFAULT_LOG_VERBOSE
 sequence m_log_output   = DEFAULT_LOG_OUTPUT
 
 --
 -- The date column should be a subdued color to call out the other information.
 --
-public function set_date_color( integer color )
+public function set_date_color( integer color = DEFAULT_DATE_COLOR )
 	integer orig_color = m_date_color
 	m_date_color = color
 	return orig_color
@@ -99,7 +101,7 @@ end function
 --
 -- The date column should be sortable, but we may want other formats available.
 --
-public function set_date_format( sequence format )
+public function set_date_format( sequence format = DEFAULT_DATE_FORMAT )
 	sequence orig_format = m_date_format
 	m_date_format = format
 	return orig_format
@@ -108,38 +110,47 @@ end function
 --
 -- This is the call stack column color, should also be a bit subdued.
 --
-public function set_stack_color( integer color )
+public function set_stack_color( integer color = DEFAULT_STACK_COLOR )
 	integer orig_color = m_stack_color
 	m_stack_color = color
 	return orig_color
 end function
 
 --
+-- Turns on call stack indenting.
+--
+public function set_stack_indent( integer indent = DEFAULT_STACK_INDENT )
+	integer orig_indent = m_stack_indent
+	m_stack_indent = indent
+	return orig_indent
+end function
+
+--
 -- This is the default log message color. Usually just WHITE to match the default console.
 --
-public function set_log_color( integer color )
+public function set_log_color( integer color = DEFAULT_LOG_COLOR )
 	integer orig_color = m_log_color
 	m_log_color = color
 	return orig_color
 end function
 
 --
--- Set an additional level of verbosity for logging.
--- This is best used for additional LOG_TRACE output, i.e. larger variables.
---
-public function set_log_verbose( integer verbose = TRUE ) -- a call to set_log_verbose() should enable
-	integer orig_verbose = m_log_verbose
-	m_log_verbose = verbose
-	return orig_verbose
-end function
-
---
 -- Log level can also be set by ifdef (see above).
 --
-public function set_log_level( integer level )
+public function set_log_level( integer level = DEFAULT_LOG_LEVEL )
 	integer orig_level = m_log_level
 	m_log_level = level
 	return orig_level
+end function
+
+--
+-- Set an additional level of verbosity for logging.
+-- This is best used for additional LOG_TRACE output, i.e. larger variables.
+--
+public function set_log_verbose( integer verbose = DEFAULT_LOG_VERBOSE ) -- a call to set_log_verbose() should enable
+	integer orig_verbose = m_log_verbose
+	m_log_verbose = verbose
+	return orig_verbose
 end function
 
 --
@@ -147,7 +158,7 @@ end function
 -- If you specify a file name, use "!" to force overwrite.
 -- e.g. set_log_output({ STDERR, "!myfile.log" })
 --
-public function set_log_output( object file )
+public function set_log_output( object file = DEFAULT_LOG_OUTPUT )
 
 	sequence orig_output = m_log_output
 
@@ -342,8 +353,13 @@ end ifdef
 
 		ifdef EUI then
 
-			-- write padding to indicate the stack depth
-			puts( fn, repeat(' ',length(cs)) )
+			if m_stack_indent then
+				-- write padding to indicate the stack depth
+				puts( fn, repeat(' ',length(cs)-1) )
+			else
+				-- just a single space to add a gap
+				puts( fn, " " )
+			end if
 
 			-- write routine_name:file_name@line_no
 			set_color( fn, m_stack_color )

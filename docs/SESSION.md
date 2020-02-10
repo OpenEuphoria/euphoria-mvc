@@ -6,16 +6,9 @@ Sessions are server-side snippits of data referenced by a single "session_id" co
 
 This is especially helpful for storing things like the current user, or for caching data between requests.
 
-**Note:** you must call **`start_session()`** before trying to get or set session variables.
+**Note:** you must call **`session_start()`** before trying to get or set session variables.
 
 ## Session routines
-
-### start_session
-
-`include mvc/session.e`  
-`public function start_session()`
-
-Loads the current session from disk or starts a new session if none exists.
 
 ### get_session
 
@@ -40,3 +33,11 @@ Sets the value of a given session variable.
 
 - **`name`** - the name of the session variable
 - **`value`** - the value to set for the variable
+
+### session_start
+
+`include mvc/session.e`  
+`public function session_start()`
+
+Loads the current session from disk or starts a new session if none exists.
+

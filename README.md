@@ -20,14 +20,17 @@ Automatically route static or dynamic paths to handler functions.
 
 Execute queries on any (well, most) database systems from one codebase.
 
-### Models
+### [Models](docs/MODEL.md)
 
-_(Coming soon!)_  
 Easily store and fetch Euphoria data via object-relation mapping (ORM).
 
-### [Configuration](docs/CONFIG.md)
+### [Server](docs/SERVER.md)
 
-Load and store data in configuration files.
+Includes a built-in development server so you can get started right away.
+
+### [Config](docs/CONFIG.md)
+
+Load and store data in configuration (INI-like) files.
 
 ### [Cookies](docs/COOKIE.md)
 
@@ -37,7 +40,85 @@ Store snippits of data with your end users.
 
 Store more data locally with minimal cookies.
 
+### [Logger](docs/LOGGER.md)
+
+Output runtime messages to the console in fancy colored text!
+
+### [Mimetype](docs/MIMETYPE.md)
+
+A quick-and-dirty table of MIME types based on file extension.
+
 ## Getting Started
+
+This example will use the built-in development server to quickly start your project. 
+
+### Write your layout template
+
+Save this as `templates/layout.html`.
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>{{ title }}</title>
+    </head>
+    <body>
+      {% block content %}
+        {# your content will end up here #}
+      {% end block %}
+    </body>
+    </html>
+
+### Write your page template
+
+Save this as `templates/index.html`.
+
+    {% extends "layout.html" %}
+
+    {% block content %}
+      {# this will replace the block with
+      same name in the layout template #}
+
+      <h1>{{ title }}</h1>
+      <p>{{ message }}</p>
+
+      {# these are just comments, btw #}
+    {% end block %}
+
+### Write your application
+
+Save this as `index.esp`.
+
+    #!/usr/local/bin/eui
+
+    include mvc/app.e
+    include mvc/server.e
+    include mvc/template.e
+    include std/map.e
+
+    function index( object request )
+
+        object response = map:new()
+        map:put( response, "title", "My First App" )
+        map:put( response, "message", "Hello, world!" )
+
+        return render_template( "index.html", response )
+    end function
+    app:route( "/", "index" )
+
+    -- "/" is the URL path, "index" is the name of the route
+    -- route() will find the matching routine automatically
+
+    server:start()
+
+    -- the server runs on http://localhost:5000/ by default
+
+### Run your application
+
+    > eui index.esp
+
+Open your web browser to your application URL at `http://localhost:5000/`
+
+## Installation
 
 This example assumes you are running Apache 2.4 on Linux and that you've already got a basic working web server.
 
@@ -75,7 +156,7 @@ Tell Apache you want it to execute Euphoria scripts and use index.esp as the ind
     AddHandler cgi-script .esp
     Options +ExecCGI
     DirectoryIndex index.esp
-    
+
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^(.*)$ index.esp/$1 [L,NS]
@@ -88,46 +169,9 @@ You can also add a block like this to keep snoopers out of certain files:
 
 Although the ideal solution would be to store sensitive data outside of your web root.
 
-### Write your template.
-
-Save this as `templates/index.html`.
-
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>{{ title }}</title>
-    </head>
-    <body>
-      <h1>{{ title }}</h1>
-      <p>{{ message }}</p>
-    </body>
-    </html>
-
-### Write your application.
-
-Save this as `index.esp`.
-
-    #!/usr/local/bin/eui
-
-    include mvc/app.e
-    include mvc/template.e
-    include std/map.e
-
-    function index( object request )
-
-        map response = map:new()
-        map:put( response, "title", "My First App" )
-        map:put( response, "message", "Hello, world!" )
-
-        return render_template( "index.html", response )
-    end function
-    app:route( "/", "index" )
-    
-    -- "/" is the URL path, "index" is the name of the route
-    -- route() will find the matching routine automatically
-    
-    app:run()
-
 ### Run your application
 
-Open your web browser to your application URL.
+Change the last line of your application from `server:start()` to `app:run()`.
+
+Then open your web browser to your web server's IP address or host name.
+

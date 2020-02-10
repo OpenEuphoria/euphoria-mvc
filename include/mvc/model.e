@@ -137,6 +137,9 @@ public type valid_param( object x )
 
 end type
 
+--
+-- define a new model
+--
 public function define( sequence model_name, sequence field_list )
 
     if valid_name( model_name ) then
@@ -165,6 +168,9 @@ public function define( sequence model_name, sequence field_list )
     return length( model_names )
 end function
 
+--
+-- create the table for the given model
+--
 public function init( integer model_type )
 
     if not valid_id( model_type ) then
@@ -281,10 +287,16 @@ public function has_id( object model )
 	return map:get( model, MODEL_HASID )
 end function
 
+--
+-- Get a value from the model.
+--
 public function get( object model, sequence name, object default = 0 )
     return map:get( model, name, default )
 end function
 
+--
+-- Set a value in a model.
+--
 public procedure set( object model, sequence name, object value )
 
     integer model_type = map:get( model, MODEL_TYPE, 0 )
@@ -332,6 +344,9 @@ public function fixup_query( sequence query, object params = {} )
 	return sprintf( query, params )
 end function
 
+--
+-- Get the number of objects matching the query.
+--
 public function count_of( integer model_type, sequence query = "", object params = {} )
 
     if not valid_id( model_type ) then
@@ -378,6 +393,9 @@ public function do_fetch( integer model_type, sequence query, object params )
     return {result,column_names,column_types}
 end function
 
+--
+-- Fetch a single model matching the query.
+--
 public function fetch_one( integer model_type, sequence query, object params = {} )
 
     atom result
@@ -422,6 +440,9 @@ public function fetch_one( integer model_type, sequence query, object params = {
     return model
 end function
 
+--
+-- Fetch all models matching the query.
+--
 public function fetch_all( integer model_type, sequence query = "", object params = {} )
 
     atom result
@@ -469,6 +490,9 @@ public function fetch_all( integer model_type, sequence query = "", object param
     return models
 end function
 
+--
+-- Store a model in the database.
+--
 public function store( object model )
 
 	integer model_type   = map:get( model, MODEL_TYPE, 0 )
@@ -592,6 +616,9 @@ public function store( object model )
 	return 0
 end function
 
+--
+-- Delete an object from the database.
+--
 public function delete( object model )
 
 	integer model_type   = map:get( model, MODEL_TYPE, 0 )

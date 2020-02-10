@@ -1,8 +1,8 @@
-# Config
+# Configs
 
 ## Concepts
 
-Config files are stored in INI format.
+Config files are stored in INI style format.
 
     [category]
     key1 = 12345
@@ -16,9 +16,20 @@ Currently, the configuration is loaded into memory and can be updated and then w
 
 Only one configuration "state" exists, as this is expected to be used for your whole application.
 
-If necessary, this can be ammeded to provide multi-config operation and maintain compatability.
-
 ## Config routines
+
+### get_config
+
+`include mvc/config.e`  
+`public function get_config( sequence category, sequence key, object default = "" )`
+
+Reads a key value from the current configuration.
+
+**Parameters**
+
+- **`category`** - the category heading, e.g. "[category]"
+- **`key`** - the key to read from the configuration
+- **`default`** - the default value to return if the key is not found
 
 ### load_config
 
@@ -41,19 +52,6 @@ Saves the configuration to a file. Returns TRUE on success or FALSE on failure.
 **Parameters**
 
 - **`filename`** - the name of a file, or an already open file number
-
-### get_config
-
-`include mvc/config.e`  
-`public function get_config( sequence category, sequence key, object default = "" )`
-
-Reads a key value from the current configuration.
-
-**Parameters**
-
-- **`category`** - the category heading, e.g. "[category]"
-- **`key`** - the key to read from the configuration
-- **`default`** - the default value to return if the key is not found
 
 ### set_config
 
