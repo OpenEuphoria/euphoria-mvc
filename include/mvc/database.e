@@ -19,7 +19,9 @@ public enum
     DB_FETCH,
     DB_FREE,
     DB_ERROR,
-    DB_LAST = DB_ERROR
+    DB_INSERT_ID,
+    DB_AFFECTED_ROWS,
+    DB_LAST = DB_AFFECTED_ROWS
 
 constant DEFAULT_TIMEOUT = 5000
 constant EMPTY_HANDLER = repeat( -1, DB_LAST )
@@ -130,17 +132,16 @@ end procedure
 public function db_query( sequence query, object params = {}, atom conn = current_conn )
 
     integer proto_id = map:get( m_conn, conn, -1 )
-    if proto_id = -1 then return 0 end if
+    if proto_id = -1 then
+		log_error( "Invalid protocol id" )
+		return 0
+	end if
 
     integer rtn_id = handlers[proto_id][DB_QUERY]
-    if rtn_id = -1 then return 0 end if
-
-    query = find_replace( '\t', query, ' ' )
-    query = find_replace( '\r', query, ' ' )
-    query = find_replace( '\n', query, ' ' )
-    query = match_replace( "   ", query, " " )
-    query = match_replace( "  ", query, " " )
-    query = text:trim( query )
+    if rtn_id = -1 then
+		log_error( "Invalid routine id" )
+		return 0
+	end if
 
     atom result = call_func( rtn_id, {conn,query,params} )
 
@@ -157,10 +158,16 @@ end function
 public function db_fetch( atom result = map:get(m_current_result,current_conn), atom conn = current_conn )
 
     integer proto_id = map:get( m_conn, conn, -1 )
-    if proto_id = -1 then return 0 end if
+    if proto_id = -1 then
+		log_error( "Invalid protocol id" )
+		return 0
+	end if
 
     integer rtn_id = handlers[proto_id][DB_FETCH]
-    if rtn_id = -1 then return 0 end if
+    if rtn_id = -1 then
+		log_error( "Invalid routine id" )
+		return 0
+	end if
 
     return call_func( rtn_id, {conn,result} )
 end function
@@ -171,10 +178,16 @@ end function
 public procedure db_free( atom result = map:get(m_current_result,current_conn), atom conn = current_conn )
 
     integer proto_id = map:get( m_conn, conn, -1 )
-    if proto_id = -1 then return end if
+    if proto_id = -1 then
+		log_error( "Invalid protocol id" )
+		return
+	end if
 
     integer rtn_id = handlers[proto_id][DB_FREE]
-    if rtn_id = -1 then return end if
+    if rtn_id = -1 then
+		log_error( "Invalid routine id" )
+		return
+	end if
 
     call_proc( rtn_id, {conn,result} )
 
@@ -186,10 +199,56 @@ end procedure
 public function db_error( atom conn = current_conn )
 
     integer proto_id = map:get( m_conn, conn, -1 )
-    if proto_id = -1 then return 0 end if
+    if proto_id = -1 then
+		log_error( "Invalid protocol id" )
+		return 0
+	end if
 
     integer rtn_id = handlers[proto_id][DB_ERROR]
-    if rtn_id = -1 then return 0 end if
+    if rtn_id = -1 then
+		log_error( "Invalid routine id" )
+		return 0
+	end if
+
+	return call_func( rtn_id, {conn} )
+end function
+
+--
+-- return the last insert id
+--
+public function db_insert_id( atom conn = current_conn )
+
+    integer proto_id = map:get( m_conn, conn, -1 )
+    if proto_id = -1 then
+		log_error( "Invalid protocol id" )
+		return 0
+	end if
+
+    integer rtn_id = handlers[proto_id][DB_INSERT_ID]
+    if rtn_id = -1 then
+		log_error( "Invalid routine id" )
+		return 0
+	end if
+
+	return call_func( rtn_id, {conn} )
+end function
+
+--
+-- return the number of affected rows
+--
+public function db_affected_rows( atom conn = current_conn )
+
+    integer proto_id = map:get( m_conn, conn, -1 )
+    if proto_id = -1 then
+		log_error( "Invalid protocol id" )
+		return 0
+	end if
+
+    integer rtn_id = handlers[proto_id][DB_AFFECTED_ROWS]
+    if rtn_id = -1 then
+		log_error( "Invalid routine id" )
+		return 0
+	end if
 
 	return call_func( rtn_id, {conn} )
 end function

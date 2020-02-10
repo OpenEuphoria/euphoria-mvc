@@ -51,13 +51,21 @@ add_handler( MYSQL, DB_DISCONNECT, routine_id("_disconnect") )
 
 function _query( atom mysql, sequence stmt, object params )
 
+	-- TODO: use proper parameterized statements
+
 --	sequence escape_stmt = mysql_real_escape_string( mysql, stmt )
+
+	if atom( params ) then
+		params = {params}
+	end if
 
     if not equal( params, {} ) then
         stmt = sprintf( stmt, params )
     end if
 
 	if mysql_real_query( mysql, stmt ) then
+		log_error( mysql_error(mysql) )
+		log_debug( "stmt = %s", {stmt} )
 		return -1
 	end if
 
@@ -85,7 +93,7 @@ add_handler( MYSQL, DB_QUERY, routine_id("_query") )
 
 function _fetch( atom mysql, atom result )
 
-    sequence row = mysql_fetch_row( result )
+    object row = mysql_fetch_row( result )
 
 --  if length( row ) = 0 then
 --      map:remove( m_valid_result, result )
@@ -110,3 +118,13 @@ function _error( atom mysql )
 	return mysql_error( mysql )
 end function
 add_handler( MYSQL, DB_ERROR, routine_id("_error") )
+
+function _insert_id( atom mysql )
+	return mysql_insert_id( mysql )
+end function
+add_handler( MYSQL, DB_INSERT_ID, routine_id("_insert_id") )
+
+function _affected_rows( atom mysql )
+	return mysql_affected_rows( mysql )
+end function
+add_handler( MYSQL, DB_AFFECTED_ROWS, routine_id("_affected_rows") )
