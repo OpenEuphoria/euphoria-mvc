@@ -5,9 +5,6 @@ include std/map.e
 include std/text.e
 include std/types.e
 
-include mvc/logger.e
-include mvc/hooks.e
-
 -- name -> value headers
 export map m_headers = map:new()
 
@@ -23,7 +20,6 @@ end procedure
 --
 public procedure set_header( sequence header_name, object header_value, object data = {} )
 
-	integer task_id = task_self()
 	header_name = text:proper( header_name )
 
 	if atom( header_value ) then
@@ -33,11 +29,11 @@ public procedure set_header( sequence header_name, object header_value, object d
 		header_value = sprintf( header_value, data )
 
 	elsif sequence_array( header_value ) and length( header_value ) = 1 then
-		header_value = map:nested_get( m_headers, {task_id,header_name}, {} ) & header_value
+		header_value = map:nested_get( m_headers, header_name, {} ) & header_value
 
 	end if
 
-	map:nested_put( m_headers, {task_id,header_name}, header_value )
+	map:nested_put( m_headers, header_name, header_value )
 
 end procedure
 
@@ -45,11 +41,7 @@ end procedure
 -- Get a header value.
 --
 public function get_header( sequence header_name, sequence default = "" )
-
-	integer task_id = task_self()
-	object task_map = map:get( m_headers, task_id, map:new() )
-
-	return map:get( task_map, header_name, default )
+	return map:get( m_headers, header_name, default )
 end function
 
 --
@@ -57,10 +49,16 @@ end function
 --
 public procedure unset_header( sequence header_name )
 
-	integer task_id = task_self()
-	object task_map = map:get( m_headers, task_id, map:new() )
+	map:remove( m_headers, header_name )
 
-	map:remove( task_map, header_name )
+end procedure
+
+--
+-- Clear all headers.
+--
+public procedure clear_headers()
+
+	map:clear( m_headers )
 
 end procedure
 
@@ -69,20 +67,12 @@ end procedure
 --
 public function format_headers()
 
-	integer exit_code = 0
-	integer task_id = task_self()
-
 	sequence headers_data = ""
-
-	exit_code = run_hooks( HOOK_HEADERS_START )
-	if exit_code then return "" end if
-
-	object task_map = map:get( m_headers, task_id, map:new() )
-	sequence keys = map:keys( task_map )
+	sequence keys = map:keys( m_headers )
 
 	for i = 1 to length( keys ) do
 
-		object value = map:get( task_map, keys[i] )
+		object value = map:get( m_headers, keys[i] )
 
 		if sequence_array( value ) then
 			for j = 1 to length( value ) do
@@ -94,9 +84,6 @@ public function format_headers()
 		end if
 
 	end for
-
-	exit_code = run_hooks( HOOK_HEADERS_END )
-	if exit_code then return "" end if
 
 	return headers_data
 end function
