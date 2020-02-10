@@ -395,7 +395,8 @@ public function token_parser( sequence tokens, integer start = 1, sequence exit_
 	return {tree,i}
 end function
 
-constant re_variable = regex:new( `^([\w\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
+--constant re_variable = regex:new( `^([\w\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
+constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
 constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]+)\((.*)\)$` )
 
 --
@@ -403,7 +404,7 @@ constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]+)\((.*)\)$` )
 --
 public function parse_value( sequence data, object response )
 
-	object var_value = 0
+	object var_value = ""
 
 	if regex:is_match( re_variable, data ) then
 		-- parse a variable and get its value
@@ -462,9 +463,11 @@ public function parse_value( sequence data, object response )
 			data = '"' & data[2..$-1] & '"'
 		end if
 
-		var_value = defaulted_value( data, 0 )
+		var_value = defaulted_value( data, var_value )
 
 	end if
+
+	log_trace( "parse_value( %s ) = %s", {data,var_value} )
 
 	return var_value
 end function
@@ -474,7 +477,7 @@ end function
 --
 public function render_fragment( sequence tree, integer i, object response )
 
-	sequence data = tree[i][TDATA]
+	sequence data = match_replace( "\r\n", tree[i][TDATA], "\n" )
 
 	return {data,i+1}
 end function
@@ -535,9 +538,13 @@ public function render_if( sequence tree, integer i, object response )
 	return {output,i}
 end function
 
-constant re_foritem   = regex:new( `^(\w+)\s+in\s+([\w\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
-constant re_forloop   = regex:new( `^(\w+)\s+=\s+(\w+)\s+to\s+(\w+)$` )
-constant re_forloopby = regex:new( `^(\w+)\s+=\s+(\w+)\s+to\s+(\w+)\s+by\s+(\w+)$` )
+--constant re_foritem   = regex:new( `^(\w+)\s+in\s+([\w\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
+--constant re_forloop   = regex:new( `^(\w+)\s+=\s+(\w+)\s+to\s+(\w+)$` )
+--constant re_forloopby = regex:new( `^(\w+)\s+=\s+(\w+)\s+to\s+(\w+)\s+by\s+(\w+)$` )
+
+constant re_foritem   = regex:new( `^(\w+)\s+in\s+(.+)?$` )
+constant re_forloop   = regex:new( `^(\w+)\s+=\s+(.+)\s+to\s+(.+)$` )
+constant re_forloopby = regex:new( `^(\w+)\s+=\s+(.+)\s+to\s+(.+)\s+by\s+(.+)$` )
 
 --
 -- Render a for block.
@@ -563,6 +570,11 @@ public function render_for( sequence tree, integer i, object response )
 
 		sequence item_name = matches[2]
 		integer previous_index = map:get( response, "current_index", 0 )
+		object previous_item
+
+		if map:has( response, item_name ) then
+			previous_item = map:get( response, item_name )
+		end if
 
 		for j = 1 to length( list_value ) do
 			map:put( response, "current_index", j )
@@ -576,7 +588,11 @@ public function render_for( sequence tree, integer i, object response )
 
 		end for
 
-		map:remove( response, item_name )
+		if object( previous_item ) then
+			map:put( response, item_name, previous_item )
+		else
+			map:remove( response, item_name )
+		end if
 
 		if previous_index != 0 then
 			map:put( response, "current_index", previous_index )
@@ -736,13 +752,15 @@ public function extend_template( sequence filename, sequence tree )
 		i += 1
 	end while
 
+	delete( blocks )
+
 	return tree
 end function
 
 --
 -- Parse template text.
 --
-public function parse_template( sequence text, object response = {} )
+public function parse_template( sequence text, object response = {}, integer free_response = TRUE )
 
 	sequence tokens = token_lexer( text )
 	sequence tree = token_parser( tokens )
@@ -768,6 +786,7 @@ public function parse_template( sequence text, object response = {} )
 	-- allow response to be { {"key","value"}, ... } sequence
 	if sequence( response ) then
 		response = map:new_from_kvpairs( response )
+		free_response = TRUE
 	end if
 
 	integer i = 1
@@ -779,13 +798,17 @@ public function parse_template( sequence text, object response = {} )
 		output &= temp
 	end while
 
+	if free_response then
+		delete( response )
+	end if
+
 	return output
 end function
 
 --
 -- Render a template.
 --
-public function render_template( sequence filename, object response = {} )
+public function render_template( sequence filename, object response = {}, integer free_response = TRUE )
 
 	if not search:begins( template_path & SLASH, filename ) then
 		filename = template_path & SLASH & filename
@@ -799,10 +822,10 @@ public function render_template( sequence filename, object response = {} )
 	end if
 
 	if atom( text ) then
-		log_error( "could not read template: %s", {filename} )
+	--	log_error( "could not read template: %s", {filename} )
 		error:crash( "could not read template: %s", {filename} )
 	end if
 
-	return parse_template( text, response )
+	return parse_template( text, response, free_response )
 end function
 

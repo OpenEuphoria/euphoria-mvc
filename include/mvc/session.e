@@ -70,6 +70,11 @@ public procedure session_start()
 	object session_map = map:new()
 	sequence session_id, session_file
 
+	if atom( dir(session_path) ) then
+		log_error( "Could not find session path: %s", {session_path} )
+		return
+	end if
+
 	session_id = get_cookie( "session_id", "" )
 	session_file = session_path & SLASH & session_id
 
@@ -86,6 +91,10 @@ public procedure session_start()
 
 	if file_exists( session_file ) then
 		session_map = load_map( session_file )
+	end if
+
+	if object( m_session ) then
+		delete( m_session )
 	end if
 
 	m_session = session_map

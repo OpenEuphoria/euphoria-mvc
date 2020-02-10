@@ -73,4 +73,3 @@ override function getenv( sequence env_name, integer env_type = AS_STRING, objec
 
 	return env_value
 end function
-

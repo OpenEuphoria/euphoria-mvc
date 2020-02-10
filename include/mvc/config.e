@@ -96,6 +96,10 @@ public function save_config( object filename )
 	return TRUE
 end function
 
+public function has_config( sequence category, sequence key )
+	return map:has( m_config, category ) and map:has( map:get(m_config,category), key )
+end function
+
 public function get_config( sequence category, sequence key, object default = "" )
 	return map:nested_get( m_config, {category,key}, default )
 end function

@@ -3,6 +3,7 @@ namespace server
 
 include std/console.e
 include std/map.e
+include std/net/url.e
 include std/sequence.e
 include std/socket.e as socket
 include std/text.e
@@ -68,24 +69,34 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 	end if
 
 	integer received_bytes = length( request_data )
-	log_trace( "received_bytes = %d", {received_bytes} )
-
 	request_data = split( request_data, "\r\n" )
 
-	sequence request_info = split( request_data[1], " " ) -- e.g. {"HTTP/1.1","GET","/path"}
-	log_trace( "request_info = %s", {request_info} )
+	log_debug( "Received %d bytes from %s", {received_bytes,client_addr} )
 
+	sequence request_info = split( request_data[1], " " ) -- e.g. {"GET","/path","HTTP/1.1"}
 	sequence request_method = request_info[1]
 	sequence path_info      = request_info[2]
+	sequence http_protocol  = request_info[3]
 	sequence query_string   = ""
 
-	if match( "?", path_info ) then
-		{path_info,query_string} = split( path_info, "?" )
+	log_trace( "request_method = %s", {request_method} )
+	log_trace( "path_info = %s",      {path_info} )
+	log_trace( "http_protocol = %s",  {http_protocol} )
+	log_trace( "query_string = %s",   {query_string} )
+
+	if find( '?', path_info ) then
+		{path_info,query_string} = split( path_info, '?' )
 	end if
 
-	log_trace( "request_method = %s", {request_method} )
-	log_trace( "path_info = %s", {path_info} )
-	log_trace( "query_string = %s", {query_string} )
+	if equal( request_method, "POST" ) then
+		if length( query_string ) then
+			query_string &= "&"
+		end if
+		query_string &= request_data[$]
+	end if
+
+	path_info = url:decode( path_info )
+	query_string = url:decode( query_string )
 
 	sequence response_data = handle_request( path_info, request_method, query_string )
 
@@ -96,7 +107,7 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 
 	sequence status = get_header( "Status", "200 OK" )
 	sequence headers = format_headers()
-	unset_header( "Status" )
+	clear_headers()
 
 	log_trace( "status = %s", {status} )
 	log_trace( "headers = %s", {headers} )
@@ -113,20 +124,25 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 		headers & "\r\n" & response_data
 	)
 
-	log_trace( "sent_bytes = %d", {sent_bytes} )
+	log_debug( "Send %d bytes to %s", {sent_bytes,client_addr} )
 
 	if sent_bytes = -1 then
 		log_error( "Could not send response data (%d)", socket:error_code() )
 	end if
 
+	socket:shutdown( client_sock )
 	socket:close( client_sock )
+
 	log_debug( "Closed connection from %s", {client_addr} )
+
+	delete( client_sock )
 
 end procedure
 
 public function create_server( sequence listen_addr, integer listen_port )
 
 	log_info( "Euphoria MVC Development Server" )
+	set_server_signature( "Euphoria MVC development server at %s:%d", {listen_addr,listen_port} )
 
 	object server_sock = socket:create( AF_INET, SOCK_STREAM, PROTOCOL_NONE )
 
@@ -228,6 +244,10 @@ end ifdef
 	socket:close( server_sock )
 
 	log_debug( "Closed server socket" )
+
+ifdef APP_DEBUG then
+	dump_ram_space()
+end ifdef
 
 end procedure
 

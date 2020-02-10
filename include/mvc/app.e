@@ -14,10 +14,11 @@ include std/text.e
 include std/types.e
 include std/utils.e
 
-public include mvc/logger.e
+include mvc/logger.e
+include mvc/template.e
+
 public include mvc/hooks.e
 public include mvc/headers.e
-public include mvc/template.e
 public include mvc/utils.e
 
 --
@@ -44,8 +45,9 @@ end ifdef
 -- Route Parsing
 --
 
--- current route
+-- current route and path
 sequence m_current_route
+sequence m_current_path
 
 -- variable name only
 constant re_varonly = regex:new( `^<([_a-zA-Z][_a-zA-Z0-9]*)>$` )
@@ -54,7 +56,8 @@ constant re_varonly = regex:new( `^<([_a-zA-Z][_a-zA-Z0-9]*)>$` )
 constant re_vartype = regex:new( `^<([_a-zA-Z][_a-zA-Z0-9]*):(atom|integer|string|object)>$` )
 
 -- variable with optional types
-constant re_variable = regex:new( `<([_a-zA-Z)[_a-zA-Z0-9]*)(?:\:(atom|integer|string|object))?>` )
+--constant re_variable = regex:new( `<([_a-zA-Z)[_a-zA-Z0-9]*)(?:\:(atom|integer|string|object))?>` )
+constant re_variable = regex:new( `<([_a-zA-Z)[_a-zA-Z0-9]*)(?:\:(.+))?>` )
 
 -- type identifier patterns
 map m_regex = map:new()
@@ -68,10 +71,10 @@ map:put( m_regex, "object",  regex:new(`([^\s\/]+)`) )
 --
 
 -- name -> pattern lookup
-export map m_names = map:new()
+map m_names = map:new()
 
 -- pattern -> data storage
-export map m_routes = map:new()
+map m_routes = map:new()
 
 --
 -- HTTP Status Codes
@@ -151,6 +154,8 @@ map m_status = map:new_from_kvpairs({
 -- Error Page Template
 --
 
+sequence SERVER_SIGNATURE = getenv( "SERVER_SIGNATURE" )
+
 constant DEFAULT_ERROR_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -161,7 +166,7 @@ constant DEFAULT_ERROR_PAGE = """
   <h1>{{ title }}</h1>
   <p>{{ message }}</p>
   <hr>
-  <p>{{ signature }}</p>
+  <p><em>{{ signature }}</em></p>
   </body>
 </html>
 
@@ -190,6 +195,15 @@ public procedure set_error_page( integer error_code, sequence error_page )
 	map:put( m_error_page, error_code, error_page )
 
 	log_debug( "Registered custom %d error page", {error_code} )
+
+end procedure
+
+--
+-- Override the default "SERVER_SIGNATURE" environment variable.
+--
+public procedure set_server_signature( sequence signature, object data = {} )
+
+	SERVER_SIGNATURE = sprintf( signature, data )
 
 end procedure
 
@@ -252,11 +266,21 @@ public function get_current_route()
 end function
 
 --
+-- Return the current route path.
+--
+public function get_current_path()
+
+	if object( m_current_path ) then
+		return m_current_path
+	end if
+
+	return ""
+end function
+
+--
 -- Build a URL from a route using optional response object.
 --
 public function url_for( sequence route_name, object response = {} )
-
-	log_trace( "route_name = %s", {route_name} )
 
 	sequence default = "#" & route_name
 
@@ -304,7 +328,7 @@ public function url_for( sequence route_name, object response = {} )
 
 	end if
 
-	log_trace( "route_path = %s", {route_path} )
+	log_trace( "route_name = %s, route_path = %s", {route_name,route_path} )
 
 	return route_path
 end function
@@ -334,7 +358,7 @@ public function response_code( integer code, sequence status = "", sequence mess
 	end if
 
 	sequence title = sprintf( "%d %s", {code,status} )
-	sequence signature = getenv( "SERVER_SIGNATURE" )
+	sequence signature = SERVER_SIGNATURE
 
 	sequence template = get_error_page( code )
 
@@ -458,10 +482,12 @@ public procedure route( sequence path, sequence name = get_route_name(path), seq
 		if map:has( m_regex, vartype ) then
 			varpattern = map:get( m_regex, vartype )
 		else
-			varpattern = map:get( m_regex, "object" )
+			-- TODO: detect regex patterns?
+			varpattern = vartype
 		end if
 
-		log_trace( "varname = %s, vartype = %s", {varname,vartype} )
+		log_trace( "varname = %s", {varname} )
+		log_trace( "vartype = %s", {vartype} )
 		log_trace( "varpattern = %s", {varpattern} )
 
 		vars = append( vars, {varname,vartype} )
@@ -475,7 +501,7 @@ public procedure route( sequence path, sequence name = get_route_name(path), seq
 	map:put( m_names, name, pattern )
 	map:put( m_routes, pattern, {path,name,vars,methods,func_id} )
 
-	log_debug( "Registered route %s with path %s and methods", {name,path,methods} )
+	log_debug( "Registered route %s with path %s and methods %s", {name,path,methods} )
 
 end procedure
 
@@ -525,27 +551,54 @@ end function
 --
 public function handle_request( sequence path_info, sequence request_method, sequence query_string )
 
-	integer route_found = 0
-	integer default_route = 0
-	sequence response = ""
-	sequence patterns = map:keys( m_routes )
-
 	integer exit_code
 
 	add_function( "url_for", {
-		{"name"},
-		{"response",0}
+		{"name"}, {"response",0}
 	}, routine_id("url_for") )
 
 	add_function( "get_current_route", {
-		-- no parameters
 	}, routine_id("get_current_route") )
+
+	add_function( "get_current_path", {
+	}, routine_id("get_current_path") )
 
 	exit_code = run_hooks( HOOK_REQUEST_START )
 	if exit_code then return "" end if
 
+	integer route_found = 0
+	integer default_route = 0
+	sequence response = ""
+	sequence patterns = map:keys( m_routes )
+	sequence candidates = {}
+
 	for i = 1 to length( patterns ) do
 		sequence pattern = patterns[i]
+
+		if regex:is_match( pattern, path_info ) then
+
+			if equal( pattern, path_info ) then
+				-- exact matches go at start of list
+				log_trace( "pattern %s exact matches %s", {pattern,path_info} )
+				candidates = insert( candidates, pattern, 1 )
+				exit
+
+			else
+				-- regex matches go at end of list
+				log_trace( "pattern %s regex matches path %s", {pattern,path_info} )
+				candidates = append( candidates, pattern )
+
+			end if
+
+		else
+			log_trace( "pattern %s does not match path %s", {pattern,path_info} )
+
+		end if
+
+	end for
+
+	for i = 1 to length( candidates ) do
+		sequence pattern = candidates[i]
 
 		object path, name, vars, methods, func_id
 		{path,name,vars,methods,func_id} = map:get( m_routes, pattern )
@@ -555,11 +608,8 @@ public function handle_request( sequence path_info, sequence request_method, seq
 			continue
 		end if
 
-		if not regex:is_match( pattern, path_info ) then
-			continue
-		end if
-
 		if not find( request_method, methods ) then
+			log_debug( "method %s not found in %s", {request_method,methods} )
 			return response_code( 405 ) -- invalid method
 		end if
 
@@ -568,6 +618,7 @@ public function handle_request( sequence path_info, sequence request_method, seq
 			path_info, request_method, query_string )
 
 		m_current_route = name
+		m_current_path = path_info
 
 		exit_code = run_hooks( HOOK_RESPONSE_START )
 		if exit_code then return "" end if
@@ -578,7 +629,8 @@ public function handle_request( sequence path_info, sequence request_method, seq
 		exit_code = run_hooks( HOOK_RESPONSE_END )
 		if exit_code then return "" end if
 
-		m_current_route = ""
+		delete( m_current_route )
+		delete( request )
 
 		route_found = i
 		exit
@@ -598,6 +650,7 @@ public function handle_request( sequence path_info, sequence request_method, seq
 				path_info, request_method, query_string )
 
 			m_current_route = name
+			m_current_path = path_info
 
 			exit_code = run_hooks( HOOK_RESPONSE_START )
 			if exit_code then return "" end if
@@ -608,8 +661,8 @@ public function handle_request( sequence path_info, sequence request_method, seq
 			exit_code = run_hooks( HOOK_RESPONSE_END )
 			if exit_code then return "" end if
 
-			response_code( 200, "OK" )
-			m_current_route = ""
+			delete( m_current_route )
+			delete( m_current_path )
 
 		else
 
@@ -648,6 +701,14 @@ public procedure run()
 		query_string = get_bytes( STDIN, content_length )
 	end if
 
+	path_info = url:decode( path_info )
+	query_string = url:decode( query_string )
+
+	log_trace( "request_method = %s", {request_method} )
+	log_trace( "path_info = %s",      {path_info} )
+	log_trace( "query_string = %s",   {query_string} )
+	log_trace( "content_length = %d", {content_length} )
+
 	sequence response = handle_request( path_info, request_method, query_string )
 	sequence headers = format_headers()
 
@@ -655,7 +716,7 @@ public procedure run()
 	puts( STDOUT, "\r\n" )
 	puts( STDOUT, response )
 
-	unset_header( "Status" )
+	clear_headers()
 
 	exit_code = run_hooks( HOOK_APP_END )
 	if exit_code then return end if

@@ -243,6 +243,7 @@ ifdef EUI then
 -- We're going to need to filter these out of the call stack.
 --
 constant LOG_ROUTINES = {
+	"call_stack",
 	"log_message",
 	"log_error",
 	"log_warn",
@@ -421,7 +422,7 @@ ifdef LOG_DEBUG then
 	log_level = LOG_DEBUG
 end ifdef
 
-	if m_log_level >= LOG_DEBUG then
+	if log_level >= LOG_DEBUG then
 		log_message( LOG_DEBUG, msg, data, flags )
 	end if
 
@@ -438,7 +439,7 @@ ifdef LOG_TRACE then
 	log_level = LOG_TRACE
 end ifdef
 
-	if m_log_level >= LOG_TRACE then
+	if log_level >= LOG_TRACE then
 		log_message( LOG_TRACE, msg, data, flags )
 	end if
 
