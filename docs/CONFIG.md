@@ -18,6 +18,11 @@ Only one configuration "state" exists, as this is expected to be used for your w
 
 ## Config routines
 
+* [`get_config`](#get_config)
+* [`load_config`](#load_config)
+* [`save_config`](#save_config)
+* [`set_config`](#set_config)
+
 ### get_config
 
 `include mvc/config.e`  

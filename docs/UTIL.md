@@ -2,6 +2,8 @@
 
 ## Utility routines
 
+* [`getenv`](#getenv)
+
 ### getenv
 
 `include mvc/utils.e`  

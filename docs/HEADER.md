@@ -2,6 +2,12 @@
 
 ## Header routines
 
+* [`clear_headers`](#clear_headers)
+* [`get_header`](#get_header)
+* [`header`](#header)
+* [`set_header`](#set_header)
+* [`unset_header`](#unset_header)
+
 ### header
 
 `include mvc/headers.e`  

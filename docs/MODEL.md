@@ -43,6 +43,17 @@ And you can also delete models.
 
 ## Model routines
 
+* [`count_of`](#count_of)
+* [`define`](#define)
+* [`delete`](#delete)
+* [`fetch_all`](#fetch_all)
+* [`fetch_one`](#fetch_one)
+* [`get`](#get)
+* [`init`](#init)
+* [`new`](#new)
+* [`set`](#set)
+* [`store`](#store)
+
 ### count_of
 
 `include mvc/model.e`  
@@ -125,7 +136,7 @@ Fetch a single model matching the query.
 
 A single model if the query returned one result, or `NULL` if no results were found.
 
-## get
+### get
 
 `include mvc/model.e`  
 `public function get( object model, sequence name, object default = 0 )`
@@ -173,7 +184,7 @@ Create a new object for the given model. The object will not be created in the d
 
 The new model ID.
 
-## set
+### set
 
 `include mvc/model.e`  
 `public procedure set( object model, sequence name, object value )`

@@ -29,6 +29,20 @@ The logger routines will utilize this information if it is available (interprete
 
 ## Logger routines
 
+* [`log_debug`](#log_debug)
+* [`log_error`](#log_error)
+* [`log_info`](#log_info)
+* [`log_message`](#log_message)
+* [`log_trace`](#log_trace)
+* [`log_warn`](#log_warn)
+* [`set_date_color`](#set_date_color)
+* [`set_date_format`](#set_date_format)
+* [`set_log_color`](#set_log_color)
+* [`set_log_level`](#set_log_level)
+* [`set_log_output`](#set_log_output)
+* [`set_stack_color`](#set_stack_color)
+* [`set_stack_indent`](#set_stack_indent)
+
 ### log_debug
 
 `include mvc/logger.e`  

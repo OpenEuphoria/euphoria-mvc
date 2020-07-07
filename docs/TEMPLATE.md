@@ -135,6 +135,10 @@ Then your rendered template will look something like this:
 
 ## Template routines
 
+* [`add_function`](#add_function)
+* [`render_template`](#render_template)
+* [`set_template_path`](#set_template_path)
+
 ### add_function
 
 `include mvc/template.e`  

@@ -29,6 +29,9 @@ The server makes heavy use of the [logger](LOGGER.md) routines and will show a l
 
 ## Server routines
 
+* [`start`](#start)
+* [`stop`](#stop)
+
 ### start
 
 `include mvc/server.e`  

@@ -1,6 +1,6 @@
 # Euphoria MVC
 
-**Euphoria MVC** is a model-view-controller framework for [Euphoria](https://githubc.com/OpenEuphoria/Euphoria).
+**Euphoria MVC** is a model-view-controller application framework for [Euphoria](https://githubc.com/OpenEuphoria/Euphoria).
 
 ## Project status
 
@@ -28,6 +28,10 @@ Easily store and fetch Euphoria data via object-relation mapping (ORM).
 
 Includes a built-in development server so you can get started right away.
 
+### [JSON](docs/JSON.md)
+
+Developing web applications requires speaking JSON.
+
 ### [Config](docs/CONFIG.md)
 
 Load and store data in configuration (INI-like) files.
@@ -47,6 +51,10 @@ Output runtime messages to the console in fancy colored text!
 ### [Mimetype](docs/MIMETYPE.md)
 
 A quick-and-dirty table of MIME types based on file extension.
+
+### [Utils](docs/UTILS.md)
+
+Other miscellaneous functions.
 
 ## Getting Started
 

@@ -4,6 +4,8 @@ This is a quick-and-dirty MIME type lookup based on this list: [Incomplete list 
 
 ## MIME routines
 
+* [`get_mime_type`](#get_mime_type)
+
 ### get_mime_type
 
 `include mvc/mimetype.e`  

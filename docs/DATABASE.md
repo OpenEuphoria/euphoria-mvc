@@ -39,6 +39,18 @@ Include at least one of these libraries to in order to connect to a database. Cu
 
 ## Database routines
 
+* [`add_handler`](#add_handler)
+* [`add_protocol`](#add_protocol)
+* [`db_affected_rows`](#db_affected_rows)
+* [`db_connect`](#db_connect)
+* [`db_disconnect`](#db_disconnect)
+* [`db_error`](#db_error)
+* [`db_fetch`](#db_fetch)
+* [`db_free`](#db_free)
+* [`db_insert_id`](#db_insert_id)
+* [`db_query`](#db_query)
+* [`db_select`](#db_select)
+
 ### add_protocol
 
 `include mvc/database.e`  

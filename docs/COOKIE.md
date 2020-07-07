@@ -8,6 +8,10 @@ Rather than going into the specifics here, I recommend reading more here: https:
 
 ## Cookie routines
 
+* [`get_cookie`](#get_cookie)
+* [`get_cookies`](#get_cookies)
+* [`set_cookie`](#set_cookie)
+
 ### get_cookies
 
 `include mvc/cookie.e`  

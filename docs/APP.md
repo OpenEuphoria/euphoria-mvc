@@ -83,6 +83,16 @@ When running applications via CGI, the web server will pass its identity signatu
 
 ## Application routines
 
+* [`get_current_route`](#get_current_route)
+* [`get_current_path`](#get_current_path)
+* [`redirect`](#redirect)
+* [`response_code`](#response_code)
+* [`route`](#route)
+* [`run`](#run)
+* [`set_error_page`](#set_error_page)
+* [`set_server_signature`](#set_server_signature)
+* [`url_for`](#url_for)
+
 ### get_current_route
 
 `include mvc/app.e`  

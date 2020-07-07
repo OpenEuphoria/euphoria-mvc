@@ -6,9 +6,13 @@ Sessions are server-side snippits of data referenced by a single "session_id" co
 
 This is especially helpful for storing things like the current user, or for caching data between requests.
 
-**Note:** you must call **`session_start()`** before trying to get or set session variables.
+**Note:** you ***must*** call **`session_start()`** before trying to get or set session variables.
 
 ## Session routines
+
+* [`get_session`](#get_session)
+* [`session_start`](#session_start)
+* [`set_session`](#set_session)
 
 ### get_session
 
