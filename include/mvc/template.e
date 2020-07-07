@@ -32,7 +32,7 @@ sequence token_regex = {}   -- list of token regexs
 -- Return the name of a given token type.
 --
 public function get_token_name( integer ttype )
-	if valid_index( ttype, token_names ) then
+	if valid_index( token_names, ttype ) then
 		return token_names[ttype]
 	end if
 	return ""
@@ -600,30 +600,6 @@ public function render_for( sequence tree, integer i, object response )
 			map:remove( response, "current_index" )
 		end if
 
-	elsif regex:is_match( re_forloop, data ) then
-		-- parse 'for i = m to n' block
-
-		sequence matches = regex:matches( re_forloop, data )
-
-		sequence iter_name  = matches[2]
-		sequence start_name = matches[3]
-		sequence stop_name  = matches[4]
-
-		object start_value = parse_value( start_name, response )
-		object stop_value = parse_value( stop_name, response )
-
-		for iter_value = start_value to stop_value do
-
-			map:put( response, iter_name, iter_value )
-			{temp,?} = render_block( tree, i, response )
-
-			output &= temp
-
-		end for
-
-		map:remove( response, iter_name )
-		
-
 	elsif regex:is_match( re_forloopby, data ) then
 		-- parse 'for i = m to n by z' block
 
@@ -643,6 +619,29 @@ public function render_for( sequence tree, integer i, object response )
 		end if
 
 		for iter_value = start_value to stop_value by by_value do
+
+			map:put( response, iter_name, iter_value )
+			{temp,?} = render_block( tree, i, response )
+
+			output &= temp
+
+		end for
+
+		map:remove( response, iter_name )
+
+		elsif regex:is_match( re_forloop, data ) then
+		-- parse 'for i = m to n' block
+
+		sequence matches = regex:matches( re_forloop, data )
+
+		sequence iter_name  = matches[2]
+		sequence start_name = matches[3]
+		sequence stop_name  = matches[4]
+
+		object start_value = parse_value( start_name, response )
+		object stop_value = parse_value( stop_name, response )
+
+		for iter_value = start_value to stop_value do
 
 			map:put( response, iter_name, iter_value )
 			{temp,?} = render_block( tree, i, response )
@@ -715,7 +714,7 @@ public function extend_template( sequence filename, sequence tree )
 		-- collect block names from the template
 
 		if tree[i][TTYPE] = T_BLOCK then
-			sequence block_name = text:trim( tree[i][TDATA], '"' )
+			sequence block_name = dequote( tree[i][TDATA] )
 			map:put( blocks, block_name, tree[i][TTREE] )
 		end if
 
@@ -762,10 +761,11 @@ end function
 --
 public function parse_template( sequence text, object response = {}, integer free_response = TRUE )
 
+	integer i = 1
 	sequence tokens = token_lexer( text )
 	sequence tree = token_parser( tokens )
 
-	for i = 1 to length( tree ) do
+	while i <= length( tree ) do
 		-- look for a master template
 
 		if tree[i][TTYPE] = T_EXTENDS then
@@ -776,7 +776,8 @@ public function parse_template( sequence text, object response = {}, integer fre
 			exit
 		end if
 
-	end for
+		i += 1
+	end while
 
 	-- allow reponse to be "key=value, ..." string
 	if string( response ) then
@@ -789,12 +790,12 @@ public function parse_template( sequence text, object response = {}, integer fre
 		free_response = TRUE
 	end if
 
-	integer i = 1
+	integer j = 1
 	sequence output = ""
 	sequence temp = ""
 
-	while i <= length( tree ) do
-		{temp,i} = render_token( tree, i, response )
+	while j <= length( tree ) do
+		{temp,j} = render_token( tree, j, response )
 		output &= temp
 	end while
 

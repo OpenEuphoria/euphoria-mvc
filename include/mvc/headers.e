@@ -5,6 +5,8 @@ include std/map.e
 include std/text.e
 include std/types.e
 
+include mvc/logger.e
+
 -- name -> value headers
 export map m_headers = map:new()
 
@@ -29,11 +31,11 @@ public procedure set_header( sequence header_name, object header_value, object d
 		header_value = sprintf( header_value, data )
 
 	elsif sequence_array( header_value ) and length( header_value ) = 1 then
-		header_value = map:nested_get( m_headers, header_name, {} ) & header_value
+		header_value = map:get( m_headers, header_name, {} ) & {header_value}
 
 	end if
 
-	map:nested_put( m_headers, header_name, header_value )
+	map:put( m_headers, header_name, header_value )
 
 end procedure
 
@@ -73,6 +75,7 @@ public function format_headers()
 	for i = 1 to length( keys ) do
 
 		object value = map:get( m_headers, keys[i] )
+		log_trace( "key = %s, value = %s", {keys[i],value} )
 
 		if sequence_array( value ) then
 			for j = 1 to length( value ) do
