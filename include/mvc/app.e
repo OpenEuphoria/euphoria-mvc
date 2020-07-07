@@ -643,8 +643,8 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
 			sequence pattern = patterns[default_route]
 
-			object path, name, vars, func_id
-			{path,name,vars,func_id} = map:get( m_routes, pattern )
+			object path, name, vars, methods, func_id
+			{path,name,vars,methods,func_id} = map:get( m_routes, pattern )
 
 			object request = parse_request( {}, {},
 				path_info, request_method, query_string )
