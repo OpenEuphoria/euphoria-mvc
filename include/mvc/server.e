@@ -237,8 +237,11 @@ ifdef AUTO_LAUNCH then
 
 end ifdef
 
-	while server_loop( server_sock ) do
+	while sequence( server_sock ) and m_server_running do
+
+		server_loop( server_sock )
 		task_yield()
+
 	end while
 
 	if run_hooks( HOOK_APP_END ) then
