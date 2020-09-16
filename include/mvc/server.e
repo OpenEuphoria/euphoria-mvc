@@ -182,7 +182,7 @@ end function
 
 public function server_loop( object server_sock )
 
-	if not m_server_running then
+	if atom( server_sock ) or not m_server_running then
 		log_error( "Server not started!" )
 		return FALSE
 	end if
@@ -237,8 +237,11 @@ ifdef AUTO_LAUNCH then
 
 end ifdef
 
-	while server_loop( server_sock ) do
+	while m_server_running do
+
+		server_loop( server_sock )
 		task_yield()
+
 	end while
 
 	if run_hooks( HOOK_APP_END ) then
