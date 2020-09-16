@@ -32,6 +32,10 @@ Includes a built-in development server so you can get started right away.
 
 Developing web applications requires speaking JSON.
 
+### [CURL](docs/CURL.md)
+
+Web applications may need to speak to the outside world.
+
 ### [Config](docs/CONFIG.md)
 
 Load and store data in configuration (INI-like) files.
