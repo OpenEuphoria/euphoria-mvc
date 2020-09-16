@@ -24,6 +24,8 @@ constant DEFAULT_PORT = 5000
 
 constant PROTOCOL_NONE = 0
 constant SOCKET_BACKLOG = 10
+constant SOCKET_TIMEOUT_SEC = 0
+constant SOCKET_TIMEOUT_MICRO = 100000
 
 integer m_server_running = FALSE
 
@@ -181,9 +183,9 @@ public function server_loop( object server_sock )
 		return FALSE
 	end if
 
-	sequence result = socket:select( server_sock, {}, {}, 0, 100 )
+	object result = socket:select( server_sock, {}, {}, SOCKET_TIMEOUT_SEC, SOCKET_TIMEOUT_MICRO )
 
-	if result[1][SELECT_IS_READABLE] then
+	if sequence( result ) and result[1][SELECT_IS_READABLE] then
 
 		object client_info = socket:accept( server_sock )
 
