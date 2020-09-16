@@ -182,7 +182,7 @@ end function
 
 public function server_loop( object server_sock )
 
-	if not m_server_running then
+	if atom( server_sock ) or not m_server_running then
 		log_error( "Server not started!" )
 		return FALSE
 	end if
