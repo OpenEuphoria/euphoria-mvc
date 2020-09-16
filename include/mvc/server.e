@@ -155,6 +155,10 @@ public function create_server( sequence listen_addr, integer listen_port )
 
 	log_debug( "Created server socket" )
 
+	if socket:set_option( server_sock, SOL_SOCKET, SO_REUSEPORT, TRUE ) != OK then
+		log_warn( "Could not set socket option SO_REUSEPORT (%d)", socket:error_code() )
+	end if
+
 	if socket:bind( server_sock, listen_addr, listen_port ) != OK then
 		log_error( "Could not bind server socket (%d)", socket:error_code() )
 		return 0
