@@ -1,6 +1,6 @@
 # JSON
 
-The JSON parser parses JSON into Euphoria map data.
+The JSON parser parses JSON into Euphoria sequences.
 
 ## Available data types
 
@@ -64,7 +64,7 @@ If a value cannot be parsed, the returned value will be `{JSON_NONE,0}`. You can
 `include mvc/json.e`  
 `public function json_compare( sequence json_a, sequence json_b )`
 
-Performs a "deep" comparison of two parsed JSON values. This will decend into map key/value pairs and ensure they're all compared correctly.
+Performs a "deep" comparison of two parsed JSON values. This will decend into key/value pairs and ensure they're all compared correctly.
 
 **Parameters**
 
