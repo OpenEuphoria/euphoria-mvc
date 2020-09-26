@@ -4,6 +4,7 @@ namespace curl
 include std/dll.e
 include std/machine.e
 include std/convert.e
+include std/error.e
 
 constant TRUE = 1
 constant FALSE = 0
@@ -22,7 +23,6 @@ elsifdef WINDOWS then
 	end ifdef
 
 elsedef
-	include std/error.e
 	error:crash( "Platform not supported" )
 
 end ifdef
@@ -770,17 +770,10 @@ public type curlopttype_blob( integer x )
 	return floor( x / 10000 ) = 4 -- floor( CURLOPTTYPE_BLOB / 10000 )
 end type
 
-sequence curlopt_values = {}
+/* CURLOPT aliases that make no run-time difference */
 
 /* *STRINGPOINT is an alias for OBJECTPOINT to allow tools to extract the
    string options from the header file */
-
-public function CURLOPT( sequence na, integer t, integer nu )
-	curlopt_values &= t + nu
-	return curlopt_values[$]
-end function
-
-/* CURLOPT aliases that make no run-time difference */
 
 /* 'char *' argument to a string with a trailing zero */
 public constant CURLOPTTYPE_STRINGPOINT = CURLOPTTYPE_OBJECTPOINT
@@ -794,9 +787,51 @@ public constant CURLOPTTYPE_CBPOINT = CURLOPTTYPE_OBJECTPOINT
 /* 'long' argument with a set of values/bitmask */
 public constant CURLOPTTYPE_VALUES = CURLOPTTYPE_LONG
 
+public type curlopttype_stringpoint( integer x )
+	return curlopttype_objectpoint(x)
+end type
+
+public type curlopttype_slistpoint( integer x )
+	return curlopttype_objectpoint(x)
+end type
+
+public type curlopttype_cbpoint( integer x )
+	return curlopttype_objectpoint(x)
+end type
+
+public type curlopttype_values( integer x )
+	return curlopttype_long(x)
+end type
+
 /*
  * All CURLOPT_* values.
  */
+
+/* this should be as big or lager than CURLOPT_LASTENTRY */
+constant CURLOPT_MAXVALUES = 300
+
+sequence curlopt_names = repeat( 0, CURLOPT_MAXVALUES )
+sequence curlopt_values = repeat( 0, CURLOPT_MAXVALUES )
+
+function curlopt_name( integer opt )
+	integer t = floor(opt / 10000)
+	integer nu = opt - t * 10000
+	return curlopt_names[nu]
+end function
+
+function curlopt_value( integer opt )
+	integer t = floor(opt / 10000)
+	integer nu = opt - t * 10000
+	return curlopt_values[nu]
+end function
+
+function CURLOPT( sequence na, integer t, integer nu )
+
+	curlopt_names[nu] = na
+	curlopt_values[nu] = t + nu
+
+	return curlopt_values[nu]
+end function
 
 public constant
 	/* This is the FILE * or void * the regular output should be written to. */
@@ -1809,7 +1844,7 @@ public constant
 $
 
 public type CURLoption( integer x )
-	return find( x, curlopt_values ) != 0
+	return curlopt_value( x ) != 0
 end type
 
 ifdef not CURL_NO_OLDIES then /* define this to test if your app builds with all
@@ -2890,15 +2925,6 @@ public function curl_easy_init()
 	return c_func( _curl_easy_init, {} )
 end function
 
-constant AUTO = -1
-
--- We can free string parameters to these options automatically.
--- Other options might take ownership of the string data, or the
--- user might have to keep track of it and free it later.
-sequence curlopt_auto_cleanup = {
-	CURLOPT_COPYPOSTFIELDS
-}
-
 /*
  * NAME curl_easy_setopt_long()
  *
@@ -2906,16 +2932,44 @@ sequence curlopt_auto_cleanup = {
  *
  */
 public function curl_easy_setopt_long( atom curl, integer option, atom param )
+
+	if not curlopttype_long( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_long: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
+
 	return c_func( _curl_easy_setopt_long, {curl,option,param} )
 end function
 
 /*
- * NAME curl_easy_setopt_ptr()
+ * NAME curl_easy_setopt_objptr()
  *
  * DESCRIPTION
  *
  */
-public function curl_easy_setopt_ptr( atom curl, integer option, atom param )
+public function curl_easy_setopt_objptr( atom curl, integer option, atom param )
+
+	if not curlopttype_objectpoint( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_ptr: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
+
+	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
+end function
+
+/*
+ * NAME curl_easy_setopt_func()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_func( atom curl, integer option, atom param )
+
+	if not curlopttype_functionpoint( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_func: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
+
 	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
 end function
 
@@ -2926,26 +2980,13 @@ end function
  *
  */
 public function curl_easy_setopt_off_t( atom curl, integer option, atom param )
+
+	if not curlopttype_off_t( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_off_t: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
+
 	return c_func( _curl_easy_setopt_off_t, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_setopt_string()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_string( atom curl, integer option, object param, integer cleanup = AUTO )
-
-	if cleanup = AUTO then
-		cleanup = ( find(option, curlopt_auto_cleanup) != 0 )
-	end if
-
-	if sequence( param ) then
-		param = allocate_string( param, cleanup )
-	end if
-
-	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
 end function
 
 /*
@@ -2955,6 +2996,11 @@ end function
  *
  */
 public function curl_easy_setopt_blob( atom curl, integer option, atom blob_data, atom blob_len, atom blob_flags = CURL_BLOB_NOCOPY )
+
+	if not curlopttype_blob( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_blob: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
 
 	atom param = allocate_data( SIZEOF_CURL_BLOB )
 	poke_pointer( param + curl_blob__data,  blob_data )
@@ -2966,6 +3012,78 @@ public function curl_easy_setopt_blob( atom curl, integer option, atom blob_data
 	free( param )
 
 	return result
+end function
+
+/*
+ * NAME curl_easy_setopt_string()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_string( atom curl, integer option, object param, integer cleanup = TRUE )
+
+	if not curlopttype_stringpoint( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_string: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
+
+	if option = CURLOPT_POSTFIELDS and cleanup = TRUE then
+		error:crash( "Cannot set 'cleanup' to FALSE when using CURLOPT_POSTFIELDS" )
+	end if
+
+	if sequence( param ) then
+		param = allocate_string( param, cleanup )
+	end if
+
+	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
+end function
+
+/*
+ * NAME curl_easy_setopt_slist()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_slist( atom curl, integer option, atom param )
+
+	if not curlopttype_slistpoint( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_slist: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
+
+	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
+end function
+
+/*
+ * NAME curl_easy_setopt_cbptr()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_cbptr( atom curl, integer option, atom param )
+
+	if not curlopttype_cbpoint( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_cbptr: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
+
+	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
+end function
+
+/*
+ * NAME curl_easy_setopt_values()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_values( atom curl, integer option, atom param )
+
+	if not curlopttype_values( option ) then
+		error:crash( "Invalid option for curl_easy_setopt_values: %s (%d)\n",
+			{curlopt_name(option),curlopt_value(option)} )
+	end if
+
+	return c_func( _curl_easy_setopt_long, {curl,option,param} )
 end function
 
 /*
