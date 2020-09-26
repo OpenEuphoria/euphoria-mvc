@@ -1,56 +1,79 @@
 
-include std/convert.e
+namespace curl
+
 include std/dll.e
-include std/error.e
-include std/eumem.e
 include std/machine.e
-include std/math.e
-include std/search.e
+include std/convert.e
+
+constant TRUE = 1
+constant FALSE = 0
 
 ifdef LINUX then
-atom libcurl = open_dll( "libcurl.so.4" )
+	atom libcurl = open_dll( "libcurl.so.4" )
 
 elsifdef WINDOWS then
 
-ifdef BITS64 then
-atom libcurl = open_dll( "libcurl-x64.dll" )
+	ifdef BITS64 then
+	atom libcurl = open_dll({ "libcurl-x64.dll", "libcurl.dll" })
+
+	elsedef
+	atom libcurl = open_dll( "libcurl.dll" )
+
+	end ifdef
 
 elsedef
-atom libcurl = open_dll( "libcurl.dll" )
+	include std/error.e
+	error:crash( "Platform not supported" )
 
 end ifdef
 
-elsedef
-error:crash( "Platform not supported" )
-
-end ifdef
-
+constant C_OFF_T = C_LONGLONG
+constant C_STRING = C_POINTER
 constant C_TIME_T = C_INT
 
-constant
+export constant
 	_curl_strequal          = define_c_func( libcurl, "+curl_strequal", {C_POINTER,C_POINTER}, C_INT ),
 	_curl_strnequal         = define_c_func( libcurl, "+curl_strnequal", {C_POINTER,C_POINTER,C_SIZE_T}, C_INT ),
+	_curl_mime_init         = define_c_func( libcurl, "+curl_mime_init", {C_POINTER}, C_POINTER ),
+	_curl_mime_free         = define_c_proc( libcurl, "+curl_mime_free", {C_POINTER} ),
+	_curl_mime_addpart      = define_c_func( libcurl, "+curl_mime_addpart", {C_POINTER}, C_POINTER ),
+	_curl_mime_name         = define_c_func( libcurl, "+curl_mime_name", {C_POINTER,C_STRING}, C_INT ),
+	_curl_mime_filename     = define_c_func( libcurl, "+curl_mime_filename", {C_POINTER,C_STRING}, C_INT ),
+	_curl_mime_type         = define_c_func( libcurl, "+curl_mime_type", {C_POINTER,C_STRING}, C_INT ),
+	_curl_mime_encoder      = define_c_func( libcurl, "+curl_mime_encoder", {C_POINTER,C_STRING}, C_INT ),
+	_curl_mime_data         = define_c_func( libcurl, "+curl_mime_data", {C_POINTER,C_STRING,C_SIZE_T}, C_INT ),
+	_curl_mime_data_cb      = define_c_func( libcurl, "+curl_mime_data_cb", {C_POINTER,C_OFF_T,C_POINTER,C_POINTER,C_POINTER,C_POINTER}, C_INT ),
+	_curl_mime_subparts     = define_c_func( libcurl, "+curl_mime_subparts", {C_POINTER,C_POINTER}, C_INT ),
+	_curl_mime_headers      = define_c_func( libcurl, "+curl_mime_headers", {C_POINTER,C_POINTER,C_INT}, C_INT ),
 	_curl_formadd           = define_c_func( libcurl, "+curl_formadd", {C_POINTER,C_POINTER,C_POINTER}, C_INT ),
 	_curl_formget           = define_c_func( libcurl, "+curl_formget", {C_POINTER,C_POINTER,C_POINTER}, C_INT ),
 	_curl_formfree          = define_c_proc( libcurl, "+curl_formfree", {C_POINTER} ),
-	_curl_getenv            = define_c_func( libcurl, "+curl_getenv", {C_POINTER}, C_POINTER ),
-	_curl_version           = define_c_func( libcurl, "+curl_version", {}, C_POINTER ),
-	_curl_easy_escape       = define_c_func( libcurl, "+curl_easy_escape", {C_POINTER,C_POINTER, C_INT}, C_POINTER ),
-	_curl_escape            = define_c_func( libcurl, "+curl_escape", {C_POINTER, C_INT}, C_POINTER ),
-	_curl_easy_unescape     = define_c_func( libcurl, "+curl_easy_unescape", {C_POINTER,C_POINTER,C_INT,C_POINTER}, C_POINTER ),
-	_curl_unescape          = define_c_func( libcurl, "+curl_unescape", {C_POINTER, C_INT}, C_POINTER ),
+	_curl_getenv            = define_c_func( libcurl, "+curl_getenv", {C_STRING}, C_STRING ),
+	_curl_version           = define_c_func( libcurl, "+curl_version", {}, C_STRING ),
+	_curl_easy_escape       = define_c_func( libcurl, "+curl_easy_escape", {C_POINTER,C_STRING,C_INT}, C_STRING ),
+	_curl_escape            = define_c_func( libcurl, "+curl_escape", {C_STRING,C_INT}, C_STRING ),
+	_curl_easy_unescape     = define_c_func( libcurl, "+curl_easy_unescape", {C_POINTER,C_STRING,C_INT,C_POINTER}, C_STRING ),
+	_curl_unescape          = define_c_func( libcurl, "+curl_unescape", {C_STRING,C_INT}, C_STRING ),
 	_curl_free              = define_c_proc( libcurl, "+curl_free", {C_POINTER} ),
 	_curl_global_init       = define_c_func( libcurl, "+curl_global_init", {C_LONG}, C_INT ),
 	_curl_global_init_mem   = define_c_func( libcurl, "+curl_global_init_mem", {C_LONG,C_POINTER,C_POINTER,C_POINTER,C_POINTER,C_POINTER}, C_INT ),
 	_curl_global_cleanup    = define_c_proc( libcurl, "+curl_global_cleanup", {}  ),
-	_curl_slist_append      = define_c_func( libcurl, "+curl_slist_append", {C_POINTER,C_POINTER}, C_POINTER ),
+	_curl_global_sslset     = define_c_func( libcurl, "+curl_global_sslset", {C_INT,C_STRING,C_POINTER}, C_INT ),
+	_curl_slist_append      = define_c_func( libcurl, "+curl_slist_append", {C_POINTER,C_STRING}, C_POINTER ),
 	_curl_slist_free_all    = define_c_proc( libcurl, "+curl_slist_free_all", {C_POINTER} ),
-	_curl_getdate           = define_c_func( libcurl, "+curl_getdate", {C_POINTER,C_POINTER}, C_TIME_T ),
+	_curl_getdate           = define_c_func( libcurl, "+curl_getdate", {C_STRING,C_POINTER}, C_TIME_T ),
+	_curl_share_init        = define_c_func( libcurl, "+curl_share_init", {}, C_POINTER ),
+	_curl_share_setopt      = define_c_func( libcurl, "+curl_share_setopt", {C_POINTER,C_INT,C_POINTER}, C_INT ),
+	_curl_share_cleanup     = define_c_func( libcurl, "+curl_share_cleanup", {C_POINTER}, C_INT ),
 	_curl_version_info      = define_c_func( libcurl, "+curl_version_info", {C_POINTER}, C_POINTER ),
-	_curl_easy_strerror     = define_c_func( libcurl, "+curl_easy_strerror", {C_INT},C_POINTER ),
+	_curl_easy_strerror     = define_c_func( libcurl, "+curl_easy_strerror", {C_INT}, C_STRING ),
+	_curl_share_strerror    = define_c_func( libcurl, "+curl_share_strerror", {C_INT}, C_STRING ),
 	_curl_easy_pause        = define_c_func( libcurl, "+curl_easy_pause", {C_POINTER, C_INT}, C_INT ),
 	_curl_easy_init         = define_c_func( libcurl, "+curl_easy_init", {},C_POINTER ),
-	_curl_easy_setopt       = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_POINTER}, C_INT ),
+--	_curl_easy_setopt       = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_POINTER}, C_INT ),
+	_curl_easy_setopt_long  = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_LONG}, C_INT ),
+	_curl_easy_setopt_ptr   = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_POINTER}, C_INT ),
+	_curl_easy_setopt_off_t = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_OFF_T}, C_INT ),
 	_curl_easy_perform      = define_c_func( libcurl, "+curl_easy_perform", {C_POINTER}, C_INT ),
 	_curl_easy_cleanup      = define_c_proc( libcurl, "+curl_easy_cleanup", {C_POINTER} ),
 	_curl_easy_getinfo      = define_c_func( libcurl, "+curl_easy_getinfo", {C_POINTER,C_INT,C_POINTER}, C_INT ),
@@ -60,26 +83,78 @@ constant
 	_curl_easy_send         = define_c_func( libcurl, "+curl_easy_send", {C_POINTER,C_POINTER,C_SIZE_T,C_POINTER}, C_INT ),
 $
 
-atom curl_options_list = NULL
+/* enum for the different supported SSL backends */
+public enum type curl_sslbackend
+	CURLSSLBACKEND_NONE            =  0,
+	CURLSSLBACKEND_OPENSSL         =  1,
+	CURLSSLBACKEND_GNUTLS          =  2,
+	CURLSSLBACKEND_NSS             =  3,
+	CURLSSLBACKEND_OBSOLETE4       =  4, /* Was QSOSSL. */
+	CURLSSLBACKEND_GSKIT           =  5,
+	CURLSSLBACKEND_POLARSSL        =  6,
+	CURLSSLBACKEND_WOLFSSL         =  7,
+	CURLSSLBACKEND_SCHANNEL        =  8,
+	CURLSSLBACKEND_SECURETRANSPORT =  9,
+	CURLSSLBACKEND_AXTLS           = 10,
+	CURLSSLBACKEND_MBEDTLS         = 11
+end type
 
+/* aliases for library clones and renames */
 public constant
-	CURL_HTTPPOST_FILENAME    =   1,
-	CURL_HTTPPOST_READFILE    =   2,
-	CURL_HTTPPOST_PTRNAME     =   4,
-	CURL_HTTPPOST_PTRCONTENTS =   8,
-	CURL_HTTPPOST_BUFFER      =  16,
-	CURL_HTTPPOST_PTRBUFFER   =  32,
-	CURL_HTTPPOST_CALLBACK    =  64,
-	CURL_HTTPPOST_LARGE       = 128,
+	CURLSSLBACKEND_LIBRESSL  = CURLSSLBACKEND_OPENSSL,
+	CURLSSLBACKEND_BORINGSSL = CURLSSLBACKEND_OPENSSL,
 $
 
-public constant CURL_MAX_WRITE_SIZE = 16384
-
-public constant CURL_MAX_HTTP_HEADER = (100*1024)
-
-public constant CURL_WRITEFUNC_PAUSE = #10000001
+/* deprecated names: */
+public constant
+	CURLSSLBACKEND_CYASSL    = CURLSSLBACKEND_WOLFSSL,
+	CURLSSLBACKEND_DARWINSSL = CURLSSLBACKEND_SECURETRANSPORT,
+$
 
 public constant
+	/* specified content is a file name */
+	CURL_HTTPPOST_FILENAME      =   1, -- (1<<0)
+	/* specified content is a file name */
+	CURL_HTTPPOST_READFILE      =   2, -- (1<<1)
+	/* name is only stored pointer do not free in formfree */
+	CURL_HTTPPOST_PTRNAME       =   4, -- (1<<2)
+	/* contents is only stored pointer do not free in formfree */
+	CURL_HTTPPOST_PTRCONTENTS   =   8, -- (1<<3)
+	/* upload file from buffer */
+	CURL_HTTPPOST_BUFFER        =  16, -- (1<<4)
+	/* upload file from pointer contents */
+	CURL_HTTPPOST_PTRBUFFER     =  32, -- (1<<5)
+	/* upload file contents by using the regular read callback to
+       get the data and pass the given pointer as custom pointer */
+	CURL_HTTPPOST_CALLBACK      =  64, -- (1<<6)
+	/* use size in 'contentlen', added in 7.46.0 */
+	CURL_HTTPPOST_LARGE       	= 128, -- (1<<7)
+$
+
+/* This is a return code for the progress callback that, when returned, will
+   signal libcurl to continue executing the default progress function */
+public constant CURL_PROGRESSFUNC_CONTINUE = #10000001
+
+/* The maximum receive buffer size configurable via CURLOPT_BUFFERSIZE. */
+public constant CURL_MAX_READ_SIZE = 524288
+
+/* Tests have proven that 20K is a very bad buffer size for uploads on
+   Windows, while 16K for some odd reason performed a lot better.
+   The practical minimum is about 400 bytes since libcurl uses a buffer
+   of this size as a scratch area (unrelated to network send operations). */
+public constant CURL_MAX_WRITE_SIZE = 16384
+
+/* The only reason to have a max limit for this is to avoid the risk of a bad
+   server feeding libcurl with a never-ending header that will cause reallocs
+   infinitely */
+public constant CURL_MAX_HTTP_HEADER = (100*1024)
+
+/* This is a magic return code for the write callback that, when returned,
+   will signal libcurl to pause receiving on the current transfer. */
+public constant CURL_WRITEFUNC_PAUSE = #10000001
+
+/* enumeration of file types */
+public enum type curlfiletype
 	CURLFILETYPE_FILE         = 0,
 	CURLFILETYPE_DIRECTORY    = 1,
 	CURLFILETYPE_SYMLINK      = 2,
@@ -88,211 +163,266 @@ public constant
 	CURLFILETYPE_NAMEDPIPE    = 5,
 	CURLFILETYPE_SOCKET       = 6,
 	CURLFILETYPE_DOOR         = 7,
-	CURLFILETYPE_UNKNOWN      = 8,
-$
-
-public type curlfiletype( integer n )
-	return ((n >= CURLFILETYPE_FILE) and (n <= CURLFILETYPE_UNKNOWN))
+	CURLFILETYPE_UNKNOWN      = 8
 end type
 
 public constant
-	CURLFINFOFLAG_KNOWN_FILENAME   =   1,
-	CURLFINFOFLAG_KNOWN_FILETYPE   =   2,
-	CURLFINFOFLAG_KNOWN_TIME       =   4,
-	CURLFINFOFLAG_KNOWN_PERM       =   8,
-	CURLFINFOFLAG_KNOWN_UID        =  16,
-	CURLFINFOFLAG_KNOWN_GID        =  32,
-	CURLFINFOFLAG_KNOWN_SIZE       =  64,
-	CURLFINFOFLAG_KNOWN_HLINKCOUNT = 128,
+	CURLFINFOFLAG_KNOWN_FILENAME   =   1, -- (1<<0)
+	CURLFINFOFLAG_KNOWN_FILETYPE   =   2, -- (1<<1)
+	CURLFINFOFLAG_KNOWN_TIME       =   4, -- (1<<2)
+	CURLFINFOFLAG_KNOWN_PERM       =   8, -- (1<<3)
+	CURLFINFOFLAG_KNOWN_UID        =  16, -- (1<<4)
+	CURLFINFOFLAG_KNOWN_GID        =  32, -- (1<<5)
+	CURLFINFOFLAG_KNOWN_SIZE       =  64, -- (1<<6)
+	CURLFINFOFLAG_KNOWN_HLINKCOUNT = 128, -- (1<<7)
 $
 
+/* return codes for CURLOPT_CHUNK_BGN_FUNCTION */
 public constant
 	CURL_CHUNK_BGN_FUNC_OK   = 0,
 	CURL_CHUNK_BGN_FUNC_FAIL = 1,
 	CURL_CHUNK_BGN_FUNC_SKIP = 2,
 $
 
+/* return codes for CURLOPT_CHUNK_END_FUNCTION */
 public constant
 	CURL_CHUNK_END_FUNC_OK   = 0,
 	CURL_CHUNK_END_FUNC_FAIL = 1,
 $
 
+/* return codes for FNMATCHFUNCTION */
 public constant
 	CURL_FNMATCHFUNC_MATCH   = 0,
 	CURL_FNMATCHFUNC_NOMATCH = 1,
 	CURL_FNMATCHFUNC_FAIL    = 2,
 $
 
+/* These are the return codes for the seek callbacks */
 public constant
 	CURL_SEEKFUNC_OK       = 0,
 	CURL_SEEKFUNC_FAIL     = 1,
 	CURL_SEEKFUNC_CANTSEEK = 2,
 $
 
+/* This is a return code for the read callback that, when returned, will
+   signal libcurl to immediately abort the current transfer. */
 public constant CURL_READFUNC_ABORT = #10000000
 
+/* This is a return code for the read callback that, when returned, will
+   signal libcurl to pause sending data on the current transfer. */
 public constant CURL_READFUNC_PAUSE = #10000001
 
-public constant
-	CURLSOCKTYPE_IPCXN  = 0,
-	CURLSOCKTYPE_ACCEPT = 1,
-	CURLSOCKTYPE_LAST   = 2,
-$
+/* Return code for when the trailing headers' callback has terminated
+   without any errors*/
+public constant CURL_TRAILERFUNC_OK = 0
 
-public type curlsocktype( integer n )
-	return ((n >= CURLSOCKTYPE_IPCXN) and (n <= CURLSOCKTYPE_LAST))
+/* Return code for when was an error in the trailing header's list and we
+   want to abort the request */
+public constant CURL_TRAILERFUNC_ABORT = 1
+
+public enum type curlsocktype
+	CURL_SOCKTYPE_IPCXN  = 0, /* socket created for a specific IP connection */
+	CURL_SOCKTYPE_ACCEPT = 1, /* socket created by accept() call */
+	CURL_SOCKTYPE_LAST   = 2  /* never use */
 end type
 
+/* The return code from the sockopt_callback can signal information back
+   to libcurl: */
 public constant
 	CURL_SOCKOPT_OK                = 0,
-	CURL_SOCKOPT_ERROR             = 1,
+	CURL_SOCKOPT_ERROR             = 1, /* causes libcurl to abort and return
+	                                       CURLE_ABORTED_BY_CALLBACK */
 	CURL_SOCKOPT_ALREADY_CONNECTED = 2,
 $
 
-public constant
-	CURLIOE_OK          = 0,
-	CURLIOE_UNKNOWNCMD  = 1,
-	CURLIOE_FAILRESTART = 2,
-	CURLIOE_LAST        = 3,
-$
 
-public type curlioerr( integer n )
-	return ((n >= CURLIOE_OK) and (n <= CURLIOE_LAST))
+public enum type curlioerr
+	CURLIOE_OK          = 0, /* I/O operation successful */
+	CURLIOE_UNKNOWNCMD  = 1, /* command was unknown to callback */
+	CURLIOE_FAILRESTART = 2, /* failed to restart the read */
+	CURLIOE_LAST        = 3  /* never use */
 end type
 
-public constant
-	CURLIOCMD_NOP         = 0,
-	CURLIOCMD_RESTARTREAD = 1,
-	CURLIOCMD_LAST        = 2,
-$
-
-public type curliocmd( integer n )
-	return ((n >= CURLIOCMD_NOP) and (n <= CURLIOCMD_LAST))
+public enum type curliocmd
+	CURLIOCMD_NOP         = 0, /* no operation */
+	CURLIOCMD_RESTARTREAD = 1, /* restart the read stream from start */
+	CURLIOCMD_LAST        = 2  /* never use */
 end type
 
-public constant
-	CURLINFO_TEXT         = 0,
-	CURLINFO_HEADER_IN    = 1,
-	CURLINFO_HEADER_OUT   = 2,
-	CURLINFO_DATA_IN      = 3,
-	CURLINFO_DATA_OUT     = 4,
-	CURLINFO_SSL_DATA_IN  = 5,
-	CURLINFO_SSL_DATA_OUT = 6,
-	CURLINFO_END          = 7,
-$
-
-public type curl_infotype( integer n )
-	return ((n >= CURLINFO_TEXT) and (n <= CURLINFO_END))
+/* the kind of data that is passed to information_callback */
+public enum type curl_infotype
+	CURLINFO_TEXT = 0,
+	CURLINFO_HEADER_IN,    /* 1 */
+	CURLINFO_HEADER_OUT,   /* 2 */
+	CURLINFO_DATA_IN,      /* 3 */
+	CURLINFO_DATA_OUT,     /* 4 */
+	CURLINFO_SSL_DATA_IN,  /* 5 */
+	CURLINFO_SSL_DATA_OUT, /* 6 */
+	CURLINFO_END
 end type
 
-public constant
-	CURLE_OK                       =  0,
-	CURLE_UNSUPPORTED_PROTOCOL     =  1,
-	CURLE_FAILED_INIT              =  2,
-	CURLE_URL_MALFORMAT            =  3,
-	CURLE_NOT_BUILT_IN             =  4,
-	CURLE_COULDNT_RESOLVE_PROXY    =  5,
-	CURLE_COULDNT_RESOLVE_HOST     =  6,
-	CURLE_COULDNT_CONNECT          =  7,
-	CURLE_FTP_WEIRD_SERVER_REPLY   =  8,
-	CURLE_REMOTE_ACCESS_DENIED     =  9,
-	CURLE_FTP_ACCEPT_FAILED        = 10,
-	CURLE_FTP_WEIRD_PASS_REPLY     = 11,
-	CURLE_FTP_ACCEPT_TIMEOUT       = 12,
-	CURLE_FTP_WEIRD_PASV_REPLY     = 13,
-	CURLE_FTP_WEIRD_227_FORMAT     = 14,
-	CURLE_FTP_CANT_GET_HOST        = 15,
-	CURLE_HTTP2                    = 16,
-	CURLE_FTP_COULDNT_SET_TYPE     = 17,
-	CURLE_PARTIAL_FILE             = 18,
-	CURLE_FTP_COULDNT_RETR_FILE    = 19,
-	CURLE_OBSOLETE20               = 20,
-	CURLE_QUOTE_ERROR              = 21,
-	CURLE_HTTP_RETURNED_ERROR      = 22,
-	CURLE_WRITE_ERROR              = 23,
-	CURLE_OBSOLETE24               = 24,
-	CURLE_UPLOAD_FAILED            = 25,
-	CURLE_READ_ERROR               = 26,
-	CURLE_OUT_OF_MEMORY            = 27,
-	CURLE_OPERATION_TIMEDOUT       = 28,
-	CURLE_OBSOLETE29               = 29,
-	CURLE_FTP_PORT_FAILED          = 30,
-	CURLE_FTP_COULDNT_USE_REST     = 31,
-	CURLE_OBSOLETE32               = 32,
-	CURLE_RANGE_ERROR              = 33,
-	CURLE_HTTP_POST_ERROR          = 34,
-	CURLE_SSL_CONNECT_ERROR        = 35,
-	CURLE_BAD_DOWNLOAD_RESUME      = 36,
-	CURLE_FILE_COULDNT_READ_FILE   = 37,
-	CURLE_LDAP_CANNOT_BIND         = 38,
-	CURLE_LDAP_SEARCH_FAILED       = 39,
-	CURLE_OBSOLETE40               = 40,
-	CURLE_FUNCTION_NOT_FOUND       = 41,
-	CURLE_ABORTED_BY_CALLBACK      = 42,
-	CURLE_BAD_FUNCTION_ARGUMENT    = 43,
-	CURLE_OBSOLETE44               = 44,
-	CURLE_INTERFACE_FAILED         = 45,
-	CURLE_OBSOLETE46               = 46,
-	CURLE_TOO_MANY_REDIRECTS       = 47,
-	CURLE_UNKNOWN_OPTION           = 48,
-	CURLE_TELNET_OPTION_SYNTAX     = 49,
-	CURLE_OBSOLETE50               = 50,
-	CURLE_PEER_FAILED_VERIFICATION = 51,
-	CURLE_GOT_NOTHING              = 52,
-	CURLE_SSL_ENGINE_NOTFOUND      = 53,
-	CURLE_SSL_ENGINE_SETFAILED     = 54,
-	CURLE_SEND_ERROR               = 55,
-	CURLE_RECV_ERROR               = 56,
-	CURLE_OBSOLETE57               = 57,
-	CURLE_SSL_CERTPROBLEM          = 58,
-	CURLE_SSL_CIPHER               = 59,
-	CURLE_SSL_CACERT               = 60,
-	CURLE_BAD_CONTENT_ENCODING     = 61,
-	CURLE_LDAP_INVALID_URL         = 62,
-	CURLE_FILESIZE_EXCEEDED        = 63,
-	CURLE_USE_SSL_FAILED           = 64,
-	CURLE_SEND_FAIL_REWIND         = 65,
-	CURLE_SSL_ENGINE_INITFAILED    = 66,
-	CURLE_LOGIN_DENIED             = 67,
-	CURLE_TFTP_NOTFOUND            = 68,
-	CURLE_TFTP_PERM                = 69,
-	CURLE_REMOTE_DISK_FULL         = 70,
-	CURLE_TFTP_ILLEGAL             = 71,
-	CURLE_TFTP_UNKNOWNID           = 72,
-	CURLE_REMOTE_FILE_EXISTS       = 73,
-	CURLE_TFTP_NOSUCHUSER          = 74,
-	CURLE_CONV_FAILED              = 75,
-	CURLE_CONV_REQD                = 76,
-	CURLE_SSL_CACERT_BADFILE       = 77,
-	CURLE_REMOTE_FILE_NOT_FOUND    = 78,
-	CURLE_SSH                      = 79,
-	CURLE_SSL_SHUTDOWN_FAILED      = 80,
-	CURLE_AGAIN                    = 81,
-	CURLE_SSL_CRL_BADFILE          = 82,
-	CURLE_SSL_ISSUER_ERROR         = 83,
-	CURLE_FTP_PRET_FAILED          = 84,
-	CURLE_RTSP_CSEQ_ERROR          = 85,
-	CURLE_RTSP_SESSION_ERROR       = 86,
-	CURLE_FTP_BAD_FILE_LIST        = 87,
-	CURLE_CHUNK_FAILED             = 88,
-	CURLE_NO_CONNECTION_AVAILABLE  = 89,
-	CURLE_SSL_PINNEDPUBKEYNOTMATCH = 90,
-	CURLE_SSL_INVALIDCERTSTATUS    = 91,
-	CURLE_HTTP2_STREAM             = 92,
-	CURL_LAST                      = 93,
-$
-
-public type CURLcode( integer n )
-	return ((n >= CURLE_OK) and (n <= CURL_LAST))
+public enum type CURLcode
+	CURLE_OK = 0,
+	CURLE_UNSUPPORTED_PROTOCOL,    /* 1 */
+	CURLE_FAILED_INIT,             /* 2 */
+	CURLE_URL_MALFORMAT,           /* 3 */
+	CURLE_NOT_BUILT_IN,            /* 4 - [was obsoleted in August 2007 for
+	                                  7.17.0, reused in April 2011 for 7.21.5] */
+	CURLE_COULDNT_RESOLVE_PROXY,   /* 5 */
+	CURLE_COULDNT_RESOLVE_HOST,    /* 6 */
+	CURLE_COULDNT_CONNECT,         /* 7 */
+	CURLE_WEIRD_SERVER_REPLY,      /* 8 */
+	CURLE_REMOTE_ACCESS_DENIED,    /* 9 a service was denied by the server
+                                      due to lack of access - when login fails
+                                      this is not returned. */
+	CURLE_FTP_ACCEPT_FAILED,       /* 10 - [was obsoleted in April 2006 for
+                                      7.15.4, reused in Dec 2011 for 7.24.0]*/
+	CURLE_FTP_WEIRD_PASS_REPLY,    /* 11 */
+	CURLE_FTP_ACCEPT_TIMEOUT,      /* 12 - timeout occurred accepting server
+                                      [was obsoleted in August 2007 for 7.17.0,
+                                      reused in Dec 2011 for 7.24.0]*/
+	CURLE_FTP_WEIRD_PASV_REPLY,    /* 13 */
+	CURLE_FTP_WEIRD_227_FORMAT,    /* 14 */
+	CURLE_FTP_CANT_GET_HOST,       /* 15 */
+	CURLE_HTTP2,                   /* 16 - A problem in the http2 framing layer.
+                                      [was obsoleted in August 2007 for 7.17.0,
+                                      reused in July 2014 for 7.38.0] */
+	CURLE_FTP_COULDNT_SET_TYPE,    /* 17 */
+	CURLE_PARTIAL_FILE,            /* 18 */
+	CURLE_FTP_COULDNT_RETR_FILE,   /* 19 */
+	CURLE_OBSOLETE20,              /* 20 - NOT USED */
+	CURLE_QUOTE_ERROR,             /* 21 - quote command failure */
+	CURLE_HTTP_RETURNED_ERROR,     /* 22 */
+	CURLE_WRITE_ERROR,             /* 23 */
+	CURLE_OBSOLETE24,              /* 24 - NOT USED */
+	CURLE_UPLOAD_FAILED,           /* 25 - failed upload "command" */
+	CURLE_READ_ERROR,              /* 26 - couldn't open/read from file */
+	CURLE_OUT_OF_MEMORY,           /* 27 */
+	/* Note: CURLE_OUT_OF_MEMORY may sometimes indicate a conversion error
+	         instead of a memory allocation error if CURL_DOES_CONVERSIONS
+	         is defined
+	 */
+	CURLE_OPERATION_TIMEDOUT,      /* 28 - the timeout time was reached */
+	CURLE_OBSOLETE29,              /* 29 - NOT USED */
+	CURLE_FTP_PORT_FAILED,         /* 30 - FTP PORT operation failed */
+	CURLE_FTP_COULDNT_USE_REST,    /* 31 - the REST command failed */
+	CURLE_OBSOLETE32,              /* 32 - NOT USED */
+	CURLE_RANGE_ERROR,             /* 33 - RANGE "command" didn't work */
+	CURLE_HTTP_POST_ERROR,         /* 34 */
+	CURLE_SSL_CONNECT_ERROR,       /* 35 - wrong when connecting with SSL */
+	CURLE_BAD_DOWNLOAD_RESUME,     /* 36 - couldn't resume download */
+	CURLE_FILE_COULDNT_READ_FILE,  /* 37 */
+	CURLE_LDAP_CANNOT_BIND,        /* 38 */
+	CURLE_LDAP_SEARCH_FAILED,      /* 39 */
+	CURLE_OBSOLETE40,              /* 40 - NOT USED */
+	CURLE_FUNCTION_NOT_FOUND,      /* 41 - NOT USED starting with 7.53.0 */
+	CURLE_ABORTED_BY_CALLBACK,     /* 42 */
+	CURLE_BAD_FUNCTION_ARGUMENT,   /* 43 */
+	CURLE_OBSOLETE44,              /* 44 - NOT USED */
+	CURLE_INTERFACE_FAILED,        /* 45 - CURLOPT_INTERFACE failed */
+	CURLE_OBSOLETE46,              /* 46 - NOT USED */
+	CURLE_TOO_MANY_REDIRECTS,      /* 47 - catch endless re-direct loops */
+	CURLE_UNKNOWN_OPTION,          /* 48 - User specified an unknown option */
+	CURLE_TELNET_OPTION_SYNTAX,    /* 49 - Malformed telnet option */
+	CURLE_OBSOLETE50,              /* 50 - NOT USED */
+	CURLE_OBSOLETE51,              /* 51 - NOT USED */
+	CURLE_GOT_NOTHING,             /* 52 - when this is a specific error */
+	CURLE_SSL_ENGINE_NOTFOUND,     /* 53 - SSL crypto engine not found */
+	CURLE_SSL_ENGINE_SETFAILED,    /* 54 - can not set SSL crypto engine as
+                                      default */
+	CURLE_SEND_ERROR,              /* 55 - failed sending network data */
+	CURLE_RECV_ERROR,              /* 56 - failure in receiving network data */
+	CURLE_OBSOLETE57,              /* 57 - NOT IN USE */
+	CURLE_SSL_CERTPROBLEM,         /* 58 - problem with the local certificate */
+	CURLE_SSL_CIPHER,              /* 59 - couldn't use specified cipher */
+	CURLE_PEER_FAILED_VERIFICATION,/* 60 - peer's certificate or fingerprint
+                                      wasn't verified fine */
+	CURLE_BAD_CONTENT_ENCODING,    /* 61 - Unrecognized/bad encoding */
+	CURLE_LDAP_INVALID_URL,        /* 62 - Invalid LDAP URL */
+	CURLE_FILESIZE_EXCEEDED,       /* 63 - Maximum file size exceeded */
+	CURLE_USE_SSL_FAILED,          /* 64 - Requested FTP SSL level failed */
+	CURLE_SEND_FAIL_REWIND,        /* 65 - Sending the data requires a rewind
+                                      that failed */
+	CURLE_SSL_ENGINE_INITFAILED,   /* 66 - failed to initialise ENGINE */
+	CURLE_LOGIN_DENIED,            /* 67 - user, password or similar was not
+                                      accepted and we failed to login */
+	CURLE_TFTP_NOTFOUND,           /* 68 - file not found on server */
+	CURLE_TFTP_PERM,               /* 69 - permission problem on server */
+	CURLE_REMOTE_DISK_FULL,        /* 70 - out of disk space on server */
+	CURLE_TFTP_ILLEGAL,            /* 71 - Illegal TFTP operation */
+	CURLE_TFTP_UNKNOWNID,          /* 72 - Unknown transfer ID */
+	CURLE_REMOTE_FILE_EXISTS,      /* 73 - File already exists */
+	CURLE_TFTP_NOSUCHUSER,         /* 74 - No such user */
+	CURLE_CONV_FAILED,             /* 75 - conversion failed */
+	CURLE_CONV_REQD,               /* 76 - caller must register conversion
+                                      callbacks using curl_easy_setopt options
+                                      CURLOPT_CONV_FROM_NETWORK_FUNCTION,
+                                      CURLOPT_CONV_TO_NETWORK_FUNCTION, and
+                                      CURLOPT_CONV_FROM_UTF8_FUNCTION */
+	CURLE_SSL_CACERT_BADFILE,      /* 77 - could not load CACERT file, missing
+                                      or wrong format */
+	CURLE_REMOTE_FILE_NOT_FOUND,   /* 78 - remote file not found */
+	CURLE_SSH,                     /* 79 - error from the SSH layer, somewhat
+                                      generic so the error message will be of
+                                      interest when this has happened */
+	CURLE_SSL_SHUTDOWN_FAILED,     /* 80 - Failed to shut down the SSL
+                                      connection */
+	CURLE_AGAIN,                   /* 81 - socket is not ready for send/recv,
+                                      wait till it's ready and try again (Added
+                                      in 7.18.2) */
+	CURLE_SSL_CRL_BADFILE,         /* 82 - could not load CRL file, missing or
+                                      wrong format (Added in 7.19.0) */
+	CURLE_SSL_ISSUER_ERROR,        /* 83 - Issuer check failed.  (Added in
+                                      7.19.0) */
+	CURLE_FTP_PRET_FAILED,         /* 84 - a PRET command failed */
+	CURLE_RTSP_CSEQ_ERROR,         /* 85 - mismatch of RTSP CSeq numbers */
+	CURLE_RTSP_SESSION_ERROR,      /* 86 - mismatch of RTSP Session Ids */
+	CURLE_FTP_BAD_FILE_LIST,       /* 87 - unable to parse FTP file list */
+	CURLE_CHUNK_FAILED,            /* 88 - chunk callback reported error */
+	CURLE_NO_CONNECTION_AVAILABLE, /* 89 - No connection available, the
+                                      session will be queued */
+	CURLE_SSL_PINNEDPUBKEYNOTMATCH,/* 90 - specified pinned public key did not
+                                      match */
+	CURLE_SSL_INVALIDCERTSTATUS,   /* 91 - invalid certificate status */
+	CURLE_HTTP2_STREAM,            /* 92 - stream error in HTTP/2 framing layer
+                                      */
+	CURLE_RECURSIVE_API_CALL,      /* 93 - an api function was called from
+                                      inside a callback */
+	CURLE_AUTH_ERROR,              /* 94 - an authentication function returned an
+                                      error */
+	CURLE_HTTP3,                   /* 95 - An HTTP/3 layer problem */
+	CURLE_QUIC_CONNECT_ERROR,      /* 96 - QUIC connection error */
+	CURLE_PROXY,                   /* 97 - proxy handshake error */
+	CURL_LAST /* never use! */
 end type
 
+ifdef not CURL_NO_OLDIES then /* define this to test if your app builds with all
+	                             the obsolete stuff removed! */
+
 public constant
-	CURLE_OBSOLETE16                  = CURLE_HTTP2,
-	CURLE_OBSOLETE10                  = CURLE_FTP_ACCEPT_FAILED,
-	CURLE_OBSOLETE12                  = CURLE_FTP_ACCEPT_TIMEOUT,
-	CURLE_UNKNOWN_TELNET_OPTION       = CURLE_UNKNOWN_OPTION,
-	CURLE_SSL_PEER_CERTIFICATE        = CURLE_PEER_FAILED_VERIFICATION,
-	CURLE_OBSOLETE                    = CURLE_OBSOLETE50,
+	/* Previously obsolete error code re-used in 7.38.0 */
+	CURLE_OBSOLETE16 = CURLE_HTTP2,
+
+	/* Previously obsolete error codes re-used in 7.24.0 */
+	CURLE_OBSOLETE10 = CURLE_FTP_ACCEPT_FAILED,
+	CURLE_OBSOLETE12 = CURLE_FTP_ACCEPT_TIMEOUT,
+
+	/*  compatibility with older names */
+	CURLE_FTP_WEIRD_SERVER_REPLY = CURLE_WEIRD_SERVER_REPLY,
+
+	/* The following were added in 7.62.0 */
+	CURLE_SSL_CACERT = CURLE_PEER_FAILED_VERIFICATION,
+
+	/* The following were added in 7.21.5, April 2011 */
+	CURLE_UNKNOWN_TELNET_OPTION = CURLE_UNKNOWN_OPTION,
+
+	/* The following were added in 7.17.1 */
+	/* These are scheduled to disappear by 2009 */
+	CURLE_SSL_PEER_CERTIFICATE = CURLE_PEER_FAILED_VERIFICATION,
+
+	/* The following were added in 7.17.0 */
+	/* These are scheduled to disappear by 2009 */
+	CURLE_OBSOLETE                    = CURLE_OBSOLETE50, /* no one should be using this! */
 	CURLE_BAD_PASSWORD_ENTERED        = CURLE_OBSOLETE46,
 	CURLE_BAD_CALLING_ORDER           = CURLE_OBSOLETE44,
 	CURLE_FTP_USER_PASSWORD_INCORRECT = CURLE_OBSOLETE10,
@@ -305,651 +435,2116 @@ public constant
 	CURLE_MALFORMAT_USER              = CURLE_OBSOLETE24,
 	CURLE_SHARE_IN_USE                = CURLE_OBSOLETE57,
 	CURLE_URL_MALFORMAT_USER          = CURLE_NOT_BUILT_IN,
-	CURLE_FTP_ACCESS_DENIED           = CURLE_REMOTE_ACCESS_DENIED,
-	CURLE_FTP_COULDNT_SET_BINARY      = CURLE_FTP_COULDNT_SET_TYPE,
-	CURLE_FTP_QUOTE_ERROR             = CURLE_QUOTE_ERROR,
-	CURLE_TFTP_DISKFULL               = CURLE_REMOTE_DISK_FULL,
-	CURLE_TFTP_EXISTS                 = CURLE_REMOTE_FILE_EXISTS,
-	CURLE_HTTP_RANGE_ERROR            = CURLE_RANGE_ERROR,
-	CURLE_FTP_SSL_FAILED              = CURLE_USE_SSL_FAILED,
-	CURLE_OPERATION_TIMEOUTED         = CURLE_OPERATION_TIMEDOUT,
-	CURLE_HTTP_NOT_FOUND              = CURLE_HTTP_RETURNED_ERROR,
-	CURLE_HTTP_PORT_FAILED            = CURLE_INTERFACE_FAILED,
-	CURLE_FTP_COULDNT_STOR_FILE       = CURLE_UPLOAD_FAILED,
-	CURLE_FTP_PARTIAL_FILE            = CURLE_PARTIAL_FILE,
-	CURLE_FTP_BAD_DOWNLOAD_RESUME     = CURLE_BAD_DOWNLOAD_RESUME,
-	CURLE_ALREADY_COMPLETE            = 99999,
-	CURLOPT_FILE                      = 10001,
-	CURLOPT_INFILE                    = 10009,
-	CURLOPT_WRITEHEADER               = 10029,
-	CURLOPT_WRITEINFO                 = 10040,
-	CURLOPT_CLOSEPOLICY               = 72,
+
+	CURLE_FTP_ACCESS_DENIED      = CURLE_REMOTE_ACCESS_DENIED,
+	CURLE_FTP_COULDNT_SET_BINARY = CURLE_FTP_COULDNT_SET_TYPE,
+	CURLE_FTP_QUOTE_ERROR        = CURLE_QUOTE_ERROR,
+	CURLE_TFTP_DISKFULL          = CURLE_REMOTE_DISK_FULL,
+	CURLE_TFTP_EXISTS            = CURLE_REMOTE_FILE_EXISTS,
+	CURLE_HTTP_RANGE_ERROR       = CURLE_RANGE_ERROR,
+	CURLE_FTP_SSL_FAILED         = CURLE_USE_SSL_FAILED,
+
+	/* The following were added earlier */
+
+	CURLE_OPERATION_TIMEOUTED = CURLE_OPERATION_TIMEDOUT,
+
+	CURLE_HTTP_NOT_FOUND        = CURLE_HTTP_RETURNED_ERROR,
+	CURLE_HTTP_PORT_FAILED      = CURLE_INTERFACE_FAILED,
+	CURLE_FTP_COULDNT_STOR_FILE = CURLE_UPLOAD_FAILED,
+
+	CURLE_FTP_PARTIAL_FILE        = CURLE_PARTIAL_FILE,
+	CURLE_FTP_BAD_DOWNLOAD_RESUME = CURLE_BAD_DOWNLOAD_RESUME,
+
+	/* This was the error code 50 in 7.7.3 and a few earlier versions, this
+		is no longer used by libcurl but is instead public constantd here only to not
+		make programs break */
+	CURLE_ALREADY_COMPLETE = 99999,
 $
 
-public constant
-	CURLPROXY_HTTP            = 0,
-	CURLPROXY_HTTP_1_0        = 1,
-	CURLPROXY_SOCKS4          = 4,
-	CURLPROXY_SOCKS5          = 5,
-	CURLPROXY_SOCKS4A         = 6,
-	CURLPROXY_SOCKS5_HOSTNAME = 7,
-$
+end ifdef -- not CURL_NO_OLDIES
 
-public type curl_proxytype( integer n )
-	return find( n, {CURLPROXY_HTTP, CURLPROXY_HTTP_1_0, CURLPROXY_SOCKS4,
-		CURLPROXY_SOCKS5, CURLPROXY_SOCKS4A, CURLPROXY_SOCKS5_HOSTNAME})
+/*
+ * Proxy error codes. Returned in CURLINFO_PROXY_ERROR if CURLE_PROXY was
+ * return for the transfers.
+ */
+public enum type CURLproxycode
+	CURLPX_OK = 0,
+	CURLPX_BAD_ADDRESS_TYPE,
+	CURLPX_BAD_VERSION,
+	CURLPX_CLOSED,
+	CURLPX_GSSAPI,
+	CURLPX_GSSAPI_PERMSG,
+	CURLPX_GSSAPI_PROTECTION,
+	CURLPX_IDENTD,
+	CURLPX_IDENTD_DIFFER,
+	CURLPX_LONG_HOSTNAME,
+	CURLPX_LONG_PASSWD,
+	CURLPX_LONG_USER,
+	CURLPX_NO_AUTH,
+	CURLPX_RECV_ADDRESS,
+	CURLPX_RECV_AUTH,
+	CURLPX_RECV_CONNECT,
+	CURLPX_RECV_REQACK,
+	CURLPX_REPLY_ADDRESS_TYPE_NOT_SUPPORTED,
+	CURLPX_REPLY_COMMAND_NOT_SUPPORTED,
+	CURLPX_REPLY_CONNECTION_REFUSED,
+	CURLPX_REPLY_GENERAL_SERVER_FAILURE,
+	CURLPX_REPLY_HOST_UNREACHABLE,
+	CURLPX_REPLY_NETWORK_UNREACHABLE,
+	CURLPX_REPLY_NOT_ALLOWED,
+	CURLPX_REPLY_TTL_EXPIRED,
+	CURLPX_REPLY_UNASSIGNED,
+	CURLPX_REQUEST_FAILED,
+	CURLPX_RESOLVE_HOST,
+	CURLPX_SEND_AUTH,
+	CURLPX_SEND_CONNECT,
+	CURLPX_SEND_REQUEST,
+	CURLPX_UNKNOWN_FAIL,
+	CURLPX_UNKNOWN_MODE,
+	CURLPX_USER_REJECTED,
+	CURLPX_LAST /* never use */
 end type
 
+/* this enum was added in 7.10 */
+public enum type curl_proxytype
+	CURLPROXY_HTTP            = 0, /* added in 7.10, new in 7.19.4 default is to use CONNECT HTTP/1.1 */
+	CURLPROXY_HTTP_1_0        = 1, /* added in 7.19.4, force to use CONNECT HTTP/1.0  */
+	CURLPROXY_HTTPS           = 2, /* added in 7.52.0 */
+	CURLPROXY_SOCKS4          = 4, /* support added in 7.15.2, enum existed already in 7.10 */
+	CURLPROXY_SOCKS5          = 5, /* added in 7.10 */
+	CURLPROXY_SOCKS4A         = 6, /* added in 7.18.0 */
+	CURLPROXY_SOCKS5_HOSTNAME = 7  /* Use the SOCKS5 protocol but pass along the host name rather than
+	                                  the IP address. added in 7.18.0 */
+end type
+
+/*
+ * Bitmasks for CURLOPT_HTTPAUTH and CURLOPT_PROXYAUTH options:
+ *
+ * CURLAUTH_NONE         - No HTTP authentication
+ * CURLAUTH_BASIC        - HTTP Basic authentication (default)
+ * CURLAUTH_DIGEST       - HTTP Digest authentication
+ * CURLAUTH_NEGOTIATE    - HTTP Negotiate (SPNEGO) authentication
+ * CURLAUTH_GSSNEGOTIATE - Alias for CURLAUTH_NEGOTIATE (deprecated)
+ * CURLAUTH_NTLM         - HTTP NTLM authentication
+ * CURLAUTH_DIGEST_IE    - HTTP Digest authentication with IE flavour
+ * CURLAUTH_NTLM_WB      - HTTP NTLM authentication delegated to winbind helper
+ * CURLAUTH_BEARER       - HTTP Bearer token authentication
+ * CURLAUTH_ONLY         - Use together with a single other type to force no
+ *                         authentication or just that single type
+ * CURLAUTH_ANY          - All fine types set
+ * CURLAUTH_ANYSAFE      - All fine types except Basic
+ */
+
 public constant
-	CURLAUTH_NONE         = #00000000,
-	CURLAUTH_BASIC        = #00000001,
-	CURLAUTH_DIGEST       = #00000002,
-	CURLAUTH_NEGOTIATE    = #00000004,
+	CURLAUTH_NONE         =  0, -- ((unsigned long)0)
+	CURLAUTH_BASIC        =  1, -- (((unsigned long)1)<<0)
+	CURLAUTH_DIGEST       =  2, -- (((unsigned long)1)<<1)
+	CURLAUTH_NEGOTIATE    =  4, -- (((unsigned long)1)<<2)
+	/* Deprecated since the advent of CURLAUTH_NEGOTIATE */
 	CURLAUTH_GSSNEGOTIATE = CURLAUTH_NEGOTIATE,
-	CURLAUTH_NTLM         = #00000008,
-	CURLAUTH_DIGEST_IE    = #00000010,
-	CURLAUTH_NTLM_WB      = #00000020,
-	CURLAUTH_ONLY         = #80000000,
-	CURLAUTH_ANY          = not CURLAUTH_DIGEST_IE,
-	CURLAUTH_ANYSAFE      = not or_bits(CURLAUTH_BASIC, CURLAUTH_DIGEST_IE),
+	/* Used for CURLOPT_SOCKS5_AUTH to stay terminologically correct */
+	CURLAUTH_GSSAPI       = CURLAUTH_NEGOTIATE,
+	CURLAUTH_NTLM         =  8, -- (((unsigned long)1)<<3)
+	CURLAUTH_DIGEST_IE    = 16, -- (((unsigned long)1)<<4)
+	CURLAUTH_NTLM_WB      = 32, -- (((unsigned long)1)<<5)
+	CURLAUTH_BEARER       = 64, -- (((unsigned long)1)<<6)
+	CURLAUTH_ONLY         = 2147483648, -- (((unsigned long)1)<<31)
+	CURLAUTH_ANY          = not_bits(CURLAUTH_DIGEST_IE),
+	CURLAUTH_ANYSAFE      = not_bits(or_bits(CURLAUTH_BASIC, CURLAUTH_DIGEST_IE)),
 $
 
 public constant
-	CURLSSH_AUTH_ANY       = not 0,
-	CURLSSH_AUTH_NONE      =  0,
-	CURLSSH_AUTH_PUBLICKEY =  1,
-	CURLSSH_AUTH_PASSWORD  =  2,
-	CURLSSH_AUTH_HOST      =  4,
-	CURLSSH_AUTH_KEYBOARD  =  8,
-	CURLSSH_AUTH_AGENT     = 16,
+	CURLSSH_AUTH_ANY       = not_bits(0),  /* all types supported by the server */
+	CURLSSH_AUTH_NONE      =  0,           /* none allowed, silly but complete */
+	CURLSSH_AUTH_PUBLICKEY =  1, -- (1<<0) /* public/private key files */
+	CURLSSH_AUTH_PASSWORD  =  2, -- (1<<1) /* password */
+	CURLSSH_AUTH_HOST      =  4, -- (1<<2) /* host key files */
+	CURLSSH_AUTH_KEYBOARD  =  8, -- (1<<3) /* keyboard interactive */
+	CURLSSH_AUTH_AGENT     = 16, -- (1<<4) /* agent (ssh-agent, pageant...) */
+	CURLSSH_AUTH_GSSAPI    = 32, -- (1<<5) /* gssapi (kerberos, ...) */
 	CURLSSH_AUTH_DEFAULT   = CURLSSH_AUTH_ANY,
 $
 
 public constant
-	CURLGSSAPI_DELEGATION_NONE        = 0,
-	CURLGSSAPI_DELEGATION_POLICY_FLAG = 1,
-	CURLGSSAPI_DELEGATION_FLAG        = 2,
+	CURLGSSAPI_DELEGATION_NONE        = 0,           /* no delegation (default) */
+	CURLGSSAPI_DELEGATION_POLICY_FLAG = 1, -- (1<<0) /* if permitted by policy */
+	CURLGSSAPI_DELEGATION_FLAG        = 2, -- (1<<1) /* delegate always */
 $
 
 public constant CURL_ERROR_SIZE = 256
 
-public constant
+public enum type curl_khtype
 	CURLKHTYPE_UNKNOWN = 0,
-	CURLKHTYPE_RSA1    = 1,
-	CURLKHTYPE_RSA     = 2,
-	CURLKHTYPE_DSS     = 3,
-$
-
-public type curl_khtype( integer x )
-	 return (x >= CURLKHTYPE_UNKNOWN) and (x <= CURLKHTYPE_DSS)
+	CURLKHTYPE_RSA1,
+	CURLKHTYPE_RSA,
+	CURLKHTYPE_DSS,
+	CURLKHTYPE_ECDSA,
+	CURLKHTYPE_ED25519
 end type
 
-public constant
+/* this is the set of return values expected from the curl_sshkeycallback
+   callback */
+public enum type curl_khstat 
 	CURLKHSTAT_FINE_ADD_TO_FILE = 0,
-	CURLKHSTAT_FINE             = 1,
-	CURLKHSTAT_REJECT           = 2,
-	CURLKHSTAT_DEFER            = 3,
-	CURLKHSTAT_LAST             = 4,
-$
-
-public type curl_khstat( integer x )
-	return (x >= CURLKHSTAT_FINE_ADD_TO_FILE) and (x <= CURLKHSTAT_LAST)
+	CURLKHSTAT_FINE,
+	CURLKHSTAT_REJECT, /* reject the connection, return an error */
+	CURLKHSTAT_DEFER,  /* do not accept it, but we can't answer right now so
+                          this causes a CURLE_DEFER error but otherwise the
+                          connection will be left intact etc */
+  	CURLKHSTAT_FINE_REPLACE, /* accept and replace the wrong key*/
+  	CURLKHSTAT_LAST    /* not for use, only a marker for last-in-list */
 end type
 
-public constant
-	CURLKHMATCH_OK       = 0,
-	CURLKHMATCH_MISMATCH = 1,
-	CURLKHMATCH_MISSING  = 2,
-	CURLKHMATCH_LAST     = 3,
-$
-
-public type curl_khmatch( integer x )
-	return (x >= CURLKHMATCH_OK) and (x <= CURLKHMATCH_LAST)
+public enum type curl_khmatch 
+	CURLKHMATCH_OK = 0, /* match */
+	CURLKHMATCH_MISMATCH, /* host found, key mismatch! */
+  	CURLKHMATCH_MISSING,  /* no matching host/key found */
+  	CURLKHMATCH_LAST      /* not for use, only a marker for last-in-list */
 end type
 
-public constant
-	CURLUSESSL_NONE    = 0,
-	CURLUSESSL_TRY     = 1,
-	CURLUSESSL_CONTROL = 2,
-	CURLUSESSL_ALL     = 3,
-	CURLUSESSL_LAST    = 4,
-$
-
-public type curl_usessl( integer x )
-	return (x >= CURLUSESSL_NONE) and (x <= CURLUSESSL_LAST)
+public enum type curl_usessl
+	CURLUSESSL_NONE = 0, /* do not attempt to use SSL */
+	CURLUSESSL_TRY,      /* try using SSL, proceed anyway otherwise */
+	CURLUSESSL_CONTROL,  /* SSL for the control connection or fail */
+	CURLUSESSL_ALL,      /* SSL for all communication or fail */
+	CURLUSESSL_LAST      /* not an option, never use */
 end type
 
-public constant
-	CURLSSLOPT_ALLOW_BEAST = 1,
-	CURLSSLOPT_NO_REVOKE   = 2,
-$
+/* Definition of bits for the CURLOPT_SSL_OPTIONS argument: */
 
-public constant
-	CURLFTPSSL_NONE    = CURLUSESSL_NONE,
-	CURLFTPSSL_TRY     = CURLUSESSL_TRY,
-	CURLFTPSSL_CONTROL = CURLUSESSL_CONTROL,
-	CURLFTPSSL_ALL     = CURLUSESSL_ALL,
-	CURLFTPSSL_LAST    = CURLUSESSL_LAST,
-$
+/* - ALLOW_BEAST tells libcurl to allow the BEAST SSL vulnerability in the
+   name of improving interoperability with older servers. Some SSL libraries
+   have introduced work-arounds for this flaw but those work-arounds sometimes
+   make the SSL communication fail. To regain functionality with those broken
+   servers, a user can this way allow the vulnerability back. */
+public constant CURLSSLOPT_ALLOW_BEAST = 1 -- (1<<0)
 
-public constant
-	CURLFTPSSL_CCC_NONE    = 0,
-	CURLFTPSSL_CCC_PASSIVE = 1,
-	CURLFTPSSL_CCC_ACTIVE  = 2,
-	CURLFTPSSL_CCC_LAST    = 3,
-$
+/* - NO_REVOKE tells libcurl to disable certificate revocation checks for those
+   SSL backends where such behavior is present. */
+public constant CURLSSLOPT_NO_REVOKE = 2 -- (1<<1)
 
-public type curl_ftpccc( integer x )
-	return (x >= CURLFTPSSL_CCC_NONE) and (x <= CURLFTPSSL_CCC_LAST)
+/* - NO_PARTIALCHAIN tells libcurl to *NOT* accept a partial certificate chain
+   if possible. The OpenSSL backend has this ability. */
+public constant CURLSSLOPT_NO_PARTIALCHAIN = 4 -- (1<<2)
+
+/* - REVOKE_BEST_EFFORT tells libcurl to ignore certificate revocation offline
+   checks and ignore missing revocation list for those SSL backends where such
+   behavior is present. */
+public constant CURLSSLOPT_REVOKE_BEST_EFFORT = 8 -- (1<<3)
+
+/* - CURLSSLOPT_NATIVE_CA tells libcurl to use standard certificate store of
+   operating system. Currently implemented under MS-Windows. */
+public constant CURLSSLOPT_NATIVE_CA = 16 -- (1<<4)
+
+/* The default connection attempt delay in milliseconds for happy eyeballs.
+   CURLOPT_HAPPY_EYEBALLS_TIMEOUT_MS.3 and happy-eyeballs-timeout-ms.d document
+   this value, keep them in sync. */
+public constant CURL_HET_DEFAULT = 200
+
+/* The default connection upkeep interval in milliseconds. */
+public constant CURL_UPKEEP_INTERVAL_DEFAULT = 60000
+
+ifdef not CURL_NO_OLDIES then /* define this to test if your app builds with all
+	                             the obsolete stuff removed! */
+
+public enum type curl_ftpssl
+	CURLFTPSSL_NONE = 0,
+	CURLFTPSSL_TRY,
+	CURLFTPSSL_CONTROL,
+	CURLFTPSSL_ALL,
+	CURLFTPSSL_LAST
 end type
 
-public constant
-	CURLFTPAUTH_DEFAULT = 0,
-	CURLFTPAUTH_SSL     = 1,
-	CURLFTPAUTH_TLS     = 2,
-	CURLFTPAUTH_LAST    = 3,
-$
+end ifdef -- not CURL_NO_OLDIES
 
-public type curl_ftpauth( integer x )
-	return (x >= CURLFTPAUTH_DEFAULT) and (x <= CURLFTPAUTH_LAST)
+/* parameter for the CURLOPT_FTP_SSL_CCC option */
+public enum type curl_ftpccc
+	CURLFTPSSL_CCC_NONE = 0, /* do not send CCC */
+	CURLFTPSSL_CCC_PASSIVE,  /* Let the server initiate the shutdown */
+	CURLFTPSSL_CCC_ACTIVE,   /* Initiate the shutdown */
+	CURLFTPSSL_CCC_LAST      /* not an option, never use */
 end type
 
-public constant
-	CURLFTP_CREATE_DIR_NONE  = 0,
-	CURLFTP_CREATE_DIR       = 1,
-	CURLFTP_CREATE_DIR_RETRY = 2,
-	CURLFTP_CREATE_DIR_LAST  = 3,
-$
-
-public type curl_ftpcreatedir( integer x )
-	return (x >= CURLFTP_CREATE_DIR_NONE) and (x <= CURLFTP_CREATE_DIR_LAST)
+/* parameter for the CURLOPT_FTPSSLAUTH option */
+public enum type curl_ftpauth
+	CURLFTPAUTH_DEFAULT = 0, /* let libcurl decide */
+	CURLFTPAUTH_SSL,         /* use "AUTH SSL" */
+	CURLFTPAUTH_TLS,         /* use "AUTH TLS" */
+	CURLFTPAUTH_LAST         /* not an option, never use */
 end type
 
-public constant
-	CURLFTPMETHOD_DEFAULT   = 0,
-	CURLFTPMETHOD_MULTICWD  = 1,
-	CURLFTPMETHOD_NOCWD     = 2,
-	CURLFTPMETHOD_SINGLECWD = 3,
-	CURLFTPMETHOD_LAST      = 4,
-$
-
-public type curl_ftpmethod( integer x )
-	return (x >= CURLFTPMETHOD_DEFAULT) and (x <= CURLFTPMETHOD_LAST)
+/* parameter for the CURLOPT_FTP_CREATE_MISSING_DIRS option */
+public enum type curl_ftpcreatedir
+	CURLFTP_CREATE_DIR_NONE = 0, /* do NOT create missing dirs! */
+	CURLFTP_CREATE_DIR,          /* (FTP/SFTP) if CWD fails, try MKD and then CWD
+                                    again if MKD succeeded, for SFTP this does
+                                    similar magic */
+  	CURLFTP_CREATE_DIR_RETRY,    /* (FTP only) if CWD fails, try MKD and then CWD
+                                    again even if MKD failed! */
+  	CURLFTP_CREATE_DIR_LAST      /* not an option, never use */
 end type
 
+/* parameter for the CURLOPT_FTP_FILEMETHOD option */
+public enum type curl_ftpmethod
+	CURLFTPMETHOD_DEFAULT = 0, /* let libcurl pick */
+	CURLFTPMETHOD_MULTICWD,    /* single CWD operation for each path part */
+  	CURLFTPMETHOD_NOCWD,       /* no CWD at all */
+	CURLFTPMETHOD_SINGLECWD,   /* one CWD to full dir, then work on file */
+	CURLFTPMETHOD_LAST         /* not an option, never use */
+end type
+
+/* bitmask defines for CURLOPT_HEADEROPT */
 public constant CURLHEADER_UNIFIED  = 0
-public constant CURLHEADER_SEPARATE = 1
+public constant CURLHEADER_SEPARATE = 1 -- (1<<0)
 
+/* CURLALTSVC_* are bits for the CURLOPT_ALTSVC_CTRL option */
 public constant
-	CURLPROTO_HTTP   = #0000001,
-	CURLPROTO_HTTPS  = #0000002,
-	CURLPROTO_FTP    = #0000004,
-	CURLPROTO_FTPS   = #0000008,
-	CURLPROTO_SCP    = #0000010,
-	CURLPROTO_SFTP   = #0000020,
-	CURLPROTO_TELNET = #0000040,
-	CURLPROTO_LDAP   = #0000080,
-	CURLPROTO_LDAPS  = #0000100,
-	CURLPROTO_DICT   = #0000200,
-	CURLPROTO_FILE   = #0000400,
-	CURLPROTO_TFTP   = #0000800,
-	CURLPROTO_IMAP   = #0001000,
-	CURLPROTO_IMAPS  = #0002000,
-	CURLPROTO_POP3   = #0004000,
-	CURLPROTO_POP3S  = #0008000,
-	CURLPROTO_SMTP   = #0010000,
-	CURLPROTO_SMTPS  = #0020000,
-	CURLPROTO_RTSP   = #0040000,
-	CURLPROTO_RTMP   = #0080000,
-	CURLPROTO_RTMPT  = #0100000,
-	CURLPROTO_RTMPE  = #0200000,
-	CURLPROTO_RTMPTE = #0400000,
-	CURLPROTO_RTMPS  = #0800000,
-	CURLPROTO_RTMPTS = #1000000,
-	CURLPROTO_GOPHER = #2000000,
-	CURLPROTO_SMB    = #4000000,
-	CURLPROTO_SMBS   = #8000000,
-	CURLPROTO_ALL    = not 0,
+	CURLALTSVC_IMMEDIATELY   = 1, -- (1<<0)
+	CURLALTSVC_READONLYFILE =  4, -- (1<<2)
+	CURLALTSVC_H1           =  8, -- (1<<3)
+	CURLALTSVC_H2           = 16, -- (1<<4)
+	CURLALTSVC_H3           = 32, -- (1<<5)
 $
 
+/* CURLPROTO_ defines are for the CURLOPT_*PROTOCOLS options */
 public constant
-	CURLOPTTYPE_LONG          = 0,
+	CURLPROTO_HTTP   =         1, -- (1<<0)
+	CURLPROTO_HTTPS  =         2, -- (1<<1)
+	CURLPROTO_FTP    =         4, -- (1<<2)
+	CURLPROTO_FTPS   =         8, -- (1<<3)
+	CURLPROTO_SCP    =        16, -- (1<<4)
+	CURLPROTO_SFTP   =        32, -- (1<<5)
+	CURLPROTO_TELNET =        64, -- (1<<6)
+	CURLPROTO_LDAP   =       128, -- (1<<7)
+	CURLPROTO_LDAPS  =       256, -- (1<<8)
+	CURLPROTO_DICT   =       512, -- (1<<9)
+	CURLPROTO_FILE   =      1024, -- (1<<10)
+	CURLPROTO_TFTP   =      2048, -- (1<<11)
+	CURLPROTO_IMAP   =      4096, -- (1<<12)
+	CURLPROTO_IMAPS  =      8192, -- (1<<13)
+	CURLPROTO_POP3   =     16384, -- (1<<14)
+	CURLPROTO_POP3S  =     32768, -- (1<<15)
+	CURLPROTO_SMTP   =     65536, -- (1<<16)
+	CURLPROTO_SMTPS  =    131072, -- (1<<17)
+	CURLPROTO_RTSP   =    262144, -- (1<<18)
+	CURLPROTO_RTMP   =    524288, -- (1<<19)
+	CURLPROTO_RTMPT  =   1048576, -- (1<<20)
+	CURLPROTO_RTMPE  =   2097152, -- (1<<21)
+	CURLPROTO_RTMPTE =   4194304, -- (1<<22)
+	CURLPROTO_RTMPS  =   8388608, -- (1<<23)
+	CURLPROTO_RTMPTS =  16777216, -- (1<<24)
+	CURLPROTO_GOPHER =  33554432, -- (1<<25)
+	CURLPROTO_SMB    =  67108864, -- (1<<26)
+	CURLPROTO_SMBS   = 134217728, -- (1<<27)
+	CURLPROTO_MQTT   = 268435456, -- (1<<28)
+	CURLPROTO_ALL    = not_bits(0), /* enable everything */
+$
+
+/* long may be 32 or 64 bits, but we should never depend on anything else
+   but 32 */
+public constant
+	CURLOPTTYPE_LONG          =     0,
 	CURLOPTTYPE_OBJECTPOINT   = 10000,
 	CURLOPTTYPE_FUNCTIONPOINT = 20000,
 	CURLOPTTYPE_OFF_T         = 30000,
 	CURLOPTTYPE_BLOB          = 40000,
 $
 
-public constant
-	CURLOPTTYPE_STRINGPOINT = CURLOPTTYPE_OBJECTPOINT,
-	CURLOPTTYPE_SLISTPOINT  = CURLOPTTYPE_OBJECTPOINT,
-	CURLOPTTYPE_CBPOINT     = CURLOPTTYPE_OBJECTPOINT,
-	CURLOPTTYPE_VALUES      = CURLOPTTYPE_LONG,
-$
-
-public constant
-	CURLOPT_WRITEDATA                  = 10001,
-	CURLOPT_URL                        = 10002,
-	CURLOPT_PORT                       =     3,
-	CURLOPT_PROXY                      = 10004,
-	CURLOPT_USERPWD                    = 10005,
-	CURLOPT_PROXYUSERPWD               = 10006,
-	CURLOPT_RANGE                      = 10007,
-	CURLOPT_READDATA                   = 10009,
-	CURLOPT_ERRORBUFFER                = 10010,
-	CURLOPT_WRITEFUNCTION              = 20011,
-	CURLOPT_READFUNCTION               = 20012,
-	CURLOPT_TIMEOUT                    =    13,
-	CURLOPT_INFILESIZE                 =    14,
-	CURLOPT_POSTFIELDS                 = 10015,
-	CURLOPT_REFERER                    = 10016,
-	CURLOPT_FTPPORT                    = 10017,
-	CURLOPT_USERAGENT                  = 10018,
-	CURLOPT_LOW_SPEED_LIMIT            =    19,
-	CURLOPT_LOW_SPEED_TIME             =    20,
-	CURLOPT_RESUME_FROM                =    21,
-	CURLOPT_COOKIE                     = 10022,
-	CURLOPT_HTTPHEADER                 = 10023,
-	CURLOPT_HTTPPOST                   = 10024,
-	CURLOPT_SSLCERT                    = 10025,
-	CURLOPT_KEYPASSWD                  = 10026,
-	CURLOPT_CRLF                       =    27,
-	CURLOPT_QUOTE                      = 10028,
-	CURLOPT_HEADERDATA                 = 10029,
-	CURLOPT_COOKIEFILE                 = 10031,
-	CURLOPT_SSLVERSION                 =    32,
-	CURLOPT_TIMECONDITION              =    33,
-	CURLOPT_TIMEVALUE                  =    34,
-	-- 35 = OBSOLETE
-	CURLOPT_CUSTOMREQUEST              = 10036,
-	CURLOPT_STDERR                     = 10037,
-	-- 38 is not used
-	CURLOPT_POSTQUOTE                  = 10039,
-	CURLOPT_OBSOLETE40                 = 10040,
-	CURLOPT_VERBOSE                    =    41,
-	CURLOPT_HEADER                     =    42,
-	CURLOPT_NOPROGRESS                 =    43,
-	CURLOPT_NOBODY                     =    44,
-	CURLOPT_FAILONERROR                =    45,
-	CURLOPT_UPLOAD                     =    46,
-	CURLOPT_POST                       =    47,
-	CURLOPT_DIRLISTONLY                =    48,
-	CURLOPT_APPEND                     =    50,
-	CURLOPT_NETRC                      =    51,
-	CURLOPT_FOLLOWLOCATION             =    52,
-	CURLOPT_TRANSFERTEXT               =    53,
-	CURLOPT_PUT                        =    54,
-	-- 55 = OBSOLETE
-	CURLOPT_PROGRESSFUNCTION           = 20056,
-	CURLOPT_PROGRESSDATA               = 10057,
-	CURLOPT_AUTOREFERER                =    58,
-	CURLOPT_PROXYPORT                  =    59,
-	CURLOPT_POSTFIELDSIZE              =    60,
-	CURLOPT_HTTPPROXYTUNNEL            =    61,
-	CURLOPT_INTERFACE                  = 10062,
-	CURLOPT_KRBLEVEL                   = 10063,
-	CURLOPT_SSL_VERIFYPEER             =    64,
-	CURLOPT_CAINFO                     = 10065,
-	-- 66 = OBSOLETE
-	-- 67 = OBSOLETE
-	CURLOPT_MAXREDIRS                  =    68,
-	CURLOPT_FILETIME                   =    69,
-	CURLOPT_TELNETOPTIONS              = 10070,
-	CURLOPT_MAXCONNECTS                =    71,
-	CURLOPT_OBSOLETE72                 =    72,
-	-- 73 = OBSOLETE
-	CURLOPT_FRESH_CONNECT              =    74,
-	CURLOPT_FORBID_REUSE               =    75,
-	CURLOPT_RANDOM_FILE                = 10076,
-	CURLOPT_EGDSOCKET                  = 10077,
-	CURLOPT_CONNECTTIMEOUT             =    78,
-	CURLOPT_HEADERFUNCTION             = 20079,
-	CURLOPT_HTTPGET                    =    80,
-	CURLOPT_SSL_VERIFYHOST             =    81,
-	CURLOPT_COOKIEJAR                  = 10082,
-	CURLOPT_SSL_CIPHER_LIST            = 10083,
-	CURLOPT_HTTP_VERSION               =    84,
-	CURLOPT_FTP_USE_EPSV               =    85,
-	CURLOPT_SSLCERTTYPE                = 10086,
-	CURLOPT_SSLKEY                     = 10087,
-	CURLOPT_SSLKEYTYPE                 = 10088,
-	CURLOPT_SSLENGINE                  = 10089,
-	CURLOPT_SSLENGINE_DEFAULT          =    90,
-	CURLOPT_DNS_USE_GLOBAL_CACHE       =    91,
-	CURLOPT_DNS_CACHE_TIMEOUT          =    92,
-	CURLOPT_PREQUOTE                   = 10093,
-	CURLOPT_DEBUGFUNCTION              = 20094,
-	CURLOPT_DEBUGDATA                  = 10095,
-	CURLOPT_COOKIESESSION              =    96,
-	CURLOPT_CAPATH                     = 10097,
-	CURLOPT_BUFFERSIZE                 =    98,
-	CURLOPT_NOSIGNAL                   =    99,
-	CURLOPT_SHARE                      = 10100,
-	CURLOPT_PROXYTYPE                  =   101,
-	CURLOPT_ACCEPT_ENCODING            = 10102,
-	CURLOPT_PRIVATE                    = 10103,
-	CURLOPT_HTTP200ALIASES             = 10104,
-	CURLOPT_UNRESTRICTED_AUTH          =   105,
-	CURLOPT_FTP_USE_EPRT               =   106,
-	CURLOPT_HTTPAUTH                   =   107,
-	CURLOPT_SSL_CTX_FUNCTION           = 20108,
-	CURLOPT_SSL_CTX_DATA               = 10109,
-	CURLOPT_FTP_CREATE_MISSING_DIRS    =   110,
-	CURLOPT_PROXYAUTH                  =   111,
-	CURLOPT_FTP_RESPONSE_TIMEOUT       =   112,
-	CURLOPT_IPRESOLVE                  =   113,
-	CURLOPT_MAXFILESIZE                =   114,
-	CURLOPT_INFILESIZE_LARGE           = 30115,
-	CURLOPT_RESUME_FROM_LARGE          = 30116,
-	CURLOPT_MAXFILESIZE_LARGE          = 30117,
-	CURLOPT_NETRC_FILE                 = 10118,
-	CURLOPT_USE_SSL                    =   119,
-	CURLOPT_POSTFIELDSIZE_LARGE        = 30120,
-	CURLOPT_TCP_NODELAY                =   121,
-	-- 122 OBSOLETE, used in 7.12.3. Gone in 7.13.0
-	-- 123 OBSOLETE. Gone in 7.16.0
-	-- 124 OBSOLETE, used in 7.12.3. Gone in 7.13.0
-	-- 125 OBSOLETE, used in 7.12.3. Gone in 7.13.0
-	-- 126 OBSOLETE, used in 7.12.3. Gone in 7.13.0
-	-- 127 OBSOLETE. Gone in 7.16.0
-	-- 128 OBSOLETE. Gone in 7.16.0
-	CURLOPT_FTPSSLAUTH                 =   129,
-	CURLOPT_IOCTLFUNCTION              = 20130,
-	CURLOPT_IOCTLDATA                  = 10131,
-	-- 132 OBSOLETE. Gone in 7.16.0
-	-- 133 OBSOLETE. Gone in 7.16.0
-	CURLOPT_FTP_ACCOUNT                = 10134,
-	CURLOPT_COOKIELIST                 = 10135,
-	CURLOPT_IGNORE_CONTENT_LENGTH = 136,
-	CURLOPT_FTP_SKIP_PASV_IP            =  137,
-	CURLOPT_FTP_FILEMETHOD             =   138,
-	CURLOPT_LOCALPORT                  =   139,
-	CURLOPT_LOCALPORTRANGE             =   140,
-	CURLOPT_CONNECT_ONLY               =   141,
-	CURLOPT_CONV_FROM_NETWORK_FUNCTION = 20142,
-	CURLOPT_CONV_TO_NETWORK_FUNCTION   = 20143,
-	CURLOPT_CONV_FROM_UTF8_FUNCTION    = 20144,
-	CURLOPT_MAX_SEND_SPEED_LARGE       = 30145,
-	CURLOPT_MAX_RECV_SPEED_LARGE       = 30146,
-	CURLOPT_FTP_ALTERNATIVE_TO_USER    = 10147,
-	CURLOPT_SOCKOPTFUNCTION            = 20148,
-	CURLOPT_SOCKOPTDATA                = 10149,
-	CURLOPT_SSL_SESSIONID_CACHE        =   150,
-	CURLOPT_SSH_AUTH_TYPES             =   151,
-	CURLOPT_SSH_PUBLIC_KEYFILE         = 10152,
-	CURLOPT_SSH_PRIVATE_KEYFILE        = 10153,
-	CURLOPT_FTP_SSL_CCC                =   154,
-	CURLOPT_TIMEOUT_MS                 =   155,
-	CURLOPT_CONNECTTIMEOUT_MS          =   156,
-	CURLOPT_HTTP_TRANSFER_DECODING     =   157,
-	CURLOPT_HTTP_CONTENT_DECODING      =   158,
-	CURLOPT_NEW_FILE_PERMS             =   159,
-	CURLOPT_NEW_DIRECTORY_PERMS        =   160,
-	CURLOPT_POSTREDIR                  =   161,
-	CURLOPT_SSH_HOST_PUBLIC_KEY_MD5    = 10162,
-	CURLOPT_OPENSOCKETFUNCTION         = 20163,
-	CURLOPT_OPENSOCKETDATA             = 10164,
-	CURLOPT_COPYPOSTFIELDS             = 10165,
-	CURLOPT_PROXY_TRANSFER_MODE        =   166,
-	CURLOPT_SEEKFUNCTION               = 20167,
-	CURLOPT_SEEKDATA                   = 10168,
-	CURLOPT_CRLFILE                    = 10169,
-	CURLOPT_ISSUERCERT                 = 10170,
-	CURLOPT_ADDRESS_SCOPE              =   171,
-	CURLOPT_CERTINFO                   =   172,
-	CURLOPT_USERNAME                   = 10173,
-	CURLOPT_PASSWORD                   = 10174,
-	CURLOPT_PROXYUSERNAME              = 10175,
-	CURLOPT_PROXYPASSWORD              = 10176,
-	CURLOPT_NOPROXY                    = 10177,
-	CURLOPT_TFTP_BLKSIZE               =   178,
-	CURLOPT_SOCKS5_GSSAPI_SERVICE      = 10179,
-	CURLOPT_SOCKS5_GSSAPI_NEC          =   180,
-	CURLOPT_PROTOCOLS                  =   181,
-	CURLOPT_REDIR_PROTOCOLS            =   182,
-	CURLOPT_SSH_KNOWNHOSTS             = 10183,
-	CURLOPT_SSH_KEYFUNCTION            = 20184,
-	CURLOPT_SSH_KEYDATA                = 10185,
-	CURLOPT_MAIL_FROM                  = 10186,
-	CURLOPT_MAIL_RCPT                  = 10187,
-	CURLOPT_FTP_USE_PRET               =   188,
-	CURLOPT_RTSP_REQUEST               =   189,
-	CURLOPT_RTSP_SESSION_ID            = 10190,
-	CURLOPT_RTSP_STREAM_URI            = 10191,
-	CURLOPT_RTSP_TRANSPORT             = 10192,
-	CURLOPT_RTSP_CLIENT_CSEQ           =   193,
-	CURLOPT_RTSP_SERVER_CSEQ           =   194,
-	CURLOPT_INTERLEAVEDATA             = 10195,
-	CURLOPT_INTERLEAVEFUNCTION         = 20196,
-	CURLOPT_WILDCARDMATCH              =    197,
-	CURLOPT_CHUNK_BGN_FUNCTION         = 20198,
-	CURLOPT_CHUNK_END_FUNCTION         = 20199,
-	CURLOPT_FNMATCH_FUNCTION           = 20200,
-	CURLOPT_CHUNK_DATA                 = 10201,
-	CURLOPT_FNMATCH_DATA               = 10202,
-	CURLOPT_RESOLVE                    = 10203,
-	CURLOPT_TLSAUTH_USERNAME           = 10204,
-	CURLOPT_TLSAUTH_PASSWORD           = 10205,
-	CURLOPT_TLSAUTH_TYPE               = 10206,
-	CURLOPT_TRANSFER_ENCODING          =   207,
-	CURLOPT_CLOSESOCKETFUNCTION        = 20208,
-	CURLOPT_CLOSESOCKETDATA            = 10209,
-	CURLOPT_GSSAPI_DELEGATION          =   210,
-	CURLOPT_DNS_SERVERS                = 10211,
-	CURLOPT_ACCEPTTIMEOUT_MS           =   212,
-	CURLOPT_TCP_KEEPALIVE              =   213,
-	CURLOPT_TCP_KEEPIDLE               =   214,
-	CURLOPT_TCP_KEEPINTVL              =   215,
-	CURLOPT_SSL_OPTIONS                =   216,
-	CURLOPT_MAIL_AUTH                  = 10217,
-	CURLOPT_SASL_IR                    =   218,
-	CURLOPT_XFERINFOFUNCTION           = 20219,
-	CURLOPT_XOAUTH2_BEARER             = 10220,
-	CURLOPT_DNS_INTERFACE              = 10221,
-	CURLOPT_DNS_LOCAL_IP4              = 10222,
-	CURLOPT_DNS_LOCAL_IP6              = 10223,
-	CURLOPT_LOGIN_OPTIONS              = 10224,
-	CURLOPT_SSL_ENABLE_NPN             =   225,
-	CURLOPT_SSL_ENABLE_ALPN            =   226,
-	CURLOPT_EXPECT_100_TIMEOUT_MS      =   227,
-	CURLOPT_PROXYHEADER                = 10228,
-	CURLOPT_HEADEROPT                  =   229,
-	CURLOPT_PINNEDPUBLICKEY            = 10230,
-	CURLOPT_UNIX_SOCKET_PATH           = 10231,
-	CURLOPT_SSL_VERIFYSTATUS           =   232,
-	CURLOPT_SSL_FALSESTART             =   233,
-	CURLOPT_PATH_AS_IS                 =   234,
-	CURLOPT_PROXY_SERVICE_NAME         = 10235,
-	CURLOPT_SERVICE_NAME               = 10236,
-	CURLOPT_PIPEWAIT                   =   237,
-	CURLOPT_DEFAULT_PROTOCOL           = 10238,
-	CURLOPT_STREAM_WEIGHT              =   239,
-	CURLOPT_STREAM_DEPENDS             = 10240,
-	CURLOPT_STREAM_DEPENDS_E           = 10241,
-	CURLOPT_TFTP_NO_OPTIONS            =   242,
-	CURLOPT_CONNECT_TO                 = 10243,
-	CURLOPT_TCP_FASTOPEN               =   244,
-	CURLOPT_LASTENTRY                  =   245,
-$
-
-public type CURLoption( integer n )
-	integer rem = remainder(n, 1000)
-	return ((rem >= 1) and (rem <= 245))
+public type curlopttype_long( integer x )
+	return floor( x / 10000 ) = 0 -- floor( CURLOPTTYPE_LONG / 10000 )
 end type
 
-public constant CURLOPT_XFERINFODATA            = CURLOPT_PROGRESSDATA
-public constant CURLOPT_SERVER_RESPONSE_TIMEOUT = CURLOPT_FTP_RESPONSE_TIMEOUT
+public type curlopttype_objectpoint( integer x )
+	return floor( x / 10000 ) = 1 -- floor( CURLOPTTYPE_OBJECTPOINT / 10000 )
+end type
 
-public constant CURLOPT_POST301 = CURLOPT_POSTREDIR
+public type curlopttype_functionpoint( integer x )
+	return floor( x / 10000 ) = 2 -- floor( CURLOPTTYPE_FUNCTIONPOINT / 10000 )
+end type
+
+public type curlopttype_off_t( integer x )
+	return floor( x / 10000 ) = 3 -- floor( CURLOPTTYPE_OFF_T / 10000 )
+end type
+
+public type curlopttype_blob( integer x )
+	return floor( x / 10000 ) = 4 -- floor( CURLOPTTYPE_BLOB / 10000 )
+end type
+
+sequence curlopt_values = {}
+
+/* *STRINGPOINT is an alias for OBJECTPOINT to allow tools to extract the
+   string options from the header file */
+
+public function CURLOPT( sequence na, integer t, integer nu )
+	curlopt_values &= t + nu
+	return curlopt_values[$]
+end function
+
+/* CURLOPT aliases that make no run-time difference */
+
+/* 'char *' argument to a string with a trailing zero */
+public constant CURLOPTTYPE_STRINGPOINT = CURLOPTTYPE_OBJECTPOINT
+
+/* 'struct curl_slist *' argument */
+public constant CURLOPTTYPE_SLISTPOINT = CURLOPTTYPE_OBJECTPOINT
+
+/* 'void *' argument passed untouched to callback */
+public constant CURLOPTTYPE_CBPOINT = CURLOPTTYPE_OBJECTPOINT
+
+/* 'long' argument with a set of values/bitmask */
+public constant CURLOPTTYPE_VALUES = CURLOPTTYPE_LONG
+
+/*
+ * All CURLOPT_* values.
+ */
 
 public constant
+	/* This is the FILE * or void * the regular output should be written to. */
+	CURLOPT_WRITEDATA = CURLOPT("CURLOPT_WRITEDATA", CURLOPTTYPE_CBPOINT, 1),
+
+	/* The full URL to get/put */
+	CURLOPT_URL = CURLOPT("CURLOPT_URL", CURLOPTTYPE_STRINGPOINT, 2),
+
+	/* Port number to connect to, if other than default. */
+	CURLOPT_PORT = CURLOPT("CURLOPT_PORT", CURLOPTTYPE_LONG, 3),
+
+	/* Name of proxy to use. */
+	CURLOPT_PROXY = CURLOPT("CURLOPT_PROXY", CURLOPTTYPE_STRINGPOINT, 4),
+
+	/* "user:password;options" to use when fetching. */
+	CURLOPT_USERPWD = CURLOPT("CURLOPT_USERPWD", CURLOPTTYPE_STRINGPOINT, 5),
+
+	/* "user:password" to use with proxy. */
+	CURLOPT_PROXYUSERPWD = CURLOPT("CURLOPT_PROXYUSERPWD", CURLOPTTYPE_STRINGPOINT, 6),
+
+	/* Range to get, specified as an ASCII string. */
+	CURLOPT_RANGE = CURLOPT("CURLOPT_RANGE", CURLOPTTYPE_STRINGPOINT, 7),
+
+	/* not used */
+
+	/* Specified file stream to upload from (use as input): */
+	CURLOPT_READDATA = CURLOPT("CURLOPT_READDATA", CURLOPTTYPE_CBPOINT, 9),
+
+	/* Buffer to receive error messages in, must be at least CURL_ERROR_SIZE
+	 * bytes big. */
+	CURLOPT_ERRORBUFFER = CURLOPT("CURLOPT_ERRORBUFFER", CURLOPTTYPE_OBJECTPOINT, 10),
+
+	/* Function that will be called to store the output (instead of fwrite). The
+	 * parameters will use fwrite() syntax, make sure to follow them. */
+	CURLOPT_WRITEFUNCTION = CURLOPT("CURLOPT_WRITEFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 11),
+
+	/* Function that will be called to read the input (instead of fread). The
+	 * parameters will use fread() syntax, make sure to follow them. */
+	CURLOPT_READFUNCTION = CURLOPT("CURLOPT_READFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 12),
+
+	/* Time-out the read operation after this amount of seconds */
+	CURLOPT_TIMEOUT = CURLOPT("CURLOPT_TIMEOUT", CURLOPTTYPE_LONG, 13),
+
+	/* If the CURLOPT_INFILE is used, this can be used to inform libcurl about
+	 * how large the file being sent really is. That allows better error
+	 * checking and better verifies that the upload was successful. -1 means
+	 * unknown size.
+	 *
+	 * For large file support, there is also a _LARGE version of the key
+	 * which takes an off_t type, allowing platforms with larger off_t
+	 * sizes to handle larger files.  See below for INFILESIZE_LARGE.
+	 */
+	CURLOPT_INFILESIZE = CURLOPT("CURLOPT_INFILESIZE", CURLOPTTYPE_LONG, 14),
+
+	/* POST static input fields. */
+	CURLOPT_POSTFIELDS = CURLOPT("CURLOPT_POSTFIELDS", CURLOPTTYPE_OBJECTPOINT, 15),
+
+	/* Set the referrer page (needed by some CGIs) */
+	CURLOPT_REFERER = CURLOPT("CURLOPT_REFERER", CURLOPTTYPE_STRINGPOINT, 16),
+
+	/* Set the FTP PORT string (interface name, named or numerical IP address)
+	   Use i.e '-' to use default address. */
+	CURLOPT_FTPPORT = CURLOPT("CURLOPT_FTPPORT", CURLOPTTYPE_STRINGPOINT, 17),
+
+	/* Set the User-Agent string (examined by some CGIs) */
+	CURLOPT_USERAGENT = CURLOPT("CURLOPT_USERAGENT", CURLOPTTYPE_STRINGPOINT, 18),
+
+	/* If the download receives less than "low speed limit" bytes/second
+	 * during "low speed time" seconds, the operations is aborted.
+	 * You could i.e if you have a pretty high speed connection, abort if
+	 * it is less than 2000 bytes/sec during 20 seconds.
+	 */
+
+	/* Set the "low speed limit" */
+	CURLOPT_LOW_SPEED_LIMIT = CURLOPT("CURLOPT_LOW_SPEED_LIMIT", CURLOPTTYPE_LONG, 19),
+
+	/* Set the "low speed time" */
+	CURLOPT_LOW_SPEED_TIME = CURLOPT("CURLOPT_LOW_SPEED_TIME", CURLOPTTYPE_LONG, 20),
+
+	/* Set the continuation offset.
+	 *
+	 * Note there is also a _LARGE version of this key which uses
+	 * off_t types, allowing for large file offsets on platforms which
+	 * use larger-than-32-bit off_t's.  Look below for RESUME_FROM_LARGE.
+	 */
+	CURLOPT_RESUME_FROM = CURLOPT("CURLOPT_RESUME_FROM", CURLOPTTYPE_LONG, 21),
+
+	/* Set cookie in request: */
+	CURLOPT_COOKIE = CURLOPT("CURLOPT_COOKIE", CURLOPTTYPE_STRINGPOINT, 22),
+
+	/* This points to a linked list of headers, struct curl_slist kind. This
+	   list is also used for RTSP (in spite of its name) */
+	CURLOPT_HTTPHEADER = CURLOPT("CURLOPT_HTTPHEADER", CURLOPTTYPE_SLISTPOINT, 23),
+
+	/* This points to a linked list of post entries, struct curl_httppost */
+	CURLOPT_HTTPPOST = CURLOPT("CURLOPT_HTTPPOST", CURLOPTTYPE_OBJECTPOINT, 24),
+
+	/* name of the file keeping your private SSL-certificate */
+	CURLOPT_SSLCERT = CURLOPT("CURLOPT_SSLCERT", CURLOPTTYPE_STRINGPOINT, 25),
+
+	/* password for the SSL or SSH private key */
+	CURLOPT_KEYPASSWD = CURLOPT("CURLOPT_KEYPASSWD", CURLOPTTYPE_STRINGPOINT, 26),
+
+	/* send TYPE parameter? */
+	CURLOPT_CRLF = CURLOPT("CURLOPT_CRLF", CURLOPTTYPE_LONG, 27),
+
+	/* send linked-list of QUOTE commands */
+	CURLOPT_QUOTE = CURLOPT("CURLOPT_QUOTE", CURLOPTTYPE_SLISTPOINT, 28),
+
+	/* send FILE * or void * to store headers to, if you use a callback it
+	   is simply passed to the callback unmodified */
+	CURLOPT_HEADERDATA = CURLOPT("CURLOPT_HEADERDATA", CURLOPTTYPE_CBPOINT, 29),
+
+	/* point to a file to read the initial cookies from, also enables
+	   "cookie awareness" */
+	CURLOPT_COOKIEFILE = CURLOPT("CURLOPT_COOKIEFILE", CURLOPTTYPE_STRINGPOINT, 31),
+
+	/* What version to specifically try to use.
+	   See CURL_SSLVERSION defines below. */
+	CURLOPT_SSLVERSION = CURLOPT("CURLOPT_SSLVERSION", CURLOPTTYPE_VALUES, 32),
+
+	/* What kind of HTTP time condition to use, see defines */
+	CURLOPT_TIMECONDITION = CURLOPT("CURLOPT_TIMECONDITION", CURLOPTTYPE_VALUES, 33),
+
+	/* Time to use with the above condition. Specified in number of seconds
+	   since 1 Jan 1970 */
+	CURLOPT_TIMEVALUE = CURLOPT("CURLOPT_TIMEVALUE", CURLOPTTYPE_LONG, 34),
+
+	/* 35 = OBSOLETE */
+
+	/* Custom request, for customizing the get command like
+	   HTTP: DELETE, TRACE and others
+	   FTP: to use a different list command
+	   */
+	CURLOPT_CUSTOMREQUEST = CURLOPT("CURLOPT_CUSTOMREQUEST", CURLOPTTYPE_STRINGPOINT, 36),
+
+	/* FILE handle to use instead of stderr */
+	CURLOPT_STDERR = CURLOPT("CURLOPT_STDERR", CURLOPTTYPE_OBJECTPOINT, 37),
+
+	/* 38 is not used */
+
+	/* send linked-list of post-transfer QUOTE commands */
+	CURLOPT_POSTQUOTE = CURLOPT("CURLOPT_POSTQUOTE", CURLOPTTYPE_SLISTPOINT, 39),
+
+	 /* OBSOLETE, do not use! */
+	CURLOPT_OBSOLETE40 = CURLOPT("CURLOPT_OBSOLETE40", CURLOPTTYPE_OBJECTPOINT, 40),
+
+	/* talk a lot */
+	CURLOPT_VERBOSE = CURLOPT("CURLOPT_VERBOSE", CURLOPTTYPE_LONG, 41),
+
+	/* throw the header out too */
+	CURLOPT_HEADER = CURLOPT("CURLOPT_HEADER", CURLOPTTYPE_LONG, 42),
+
+	/* shut off the progress meter */
+	CURLOPT_NOPROGRESS = CURLOPT("CURLOPT_NOPROGRESS", CURLOPTTYPE_LONG, 43),
+
+	/* use HEAD to get http document */
+	CURLOPT_NOBODY = CURLOPT("CURLOPT_NOBODY", CURLOPTTYPE_LONG, 44),
+
+	/* no output on http error codes >= 400 */
+	CURLOPT_FAILONERROR = CURLOPT("CURLOPT_FAILONERROR", CURLOPTTYPE_LONG, 45),
+
+	/* this is an upload */
+	CURLOPT_UPLOAD = CURLOPT("CURLOPT_UPLOAD", CURLOPTTYPE_LONG, 46),
+
+	/* HTTP POST method */
+	CURLOPT_POST = CURLOPT("CURLOPT_POST", CURLOPTTYPE_LONG, 47),
+
+	/* bare names when listing directories */
+	CURLOPT_DIRLISTONLY = CURLOPT("CURLOPT_DIRLISTONLY", CURLOPTTYPE_LONG, 48),
+
+	/* Append instead of overwrite on upload! */
+	CURLOPT_APPEND = CURLOPT("CURLOPT_APPEND", CURLOPTTYPE_LONG, 50),
+
+	/* Specify whether to read the user+password from the .netrc or the URL.
+	 * This must be one of the CURL_NETRC_* enums below. */
+	CURLOPT_NETRC = CURLOPT("CURLOPT_NETRC", CURLOPTTYPE_VALUES, 51),
+
+	/* use Location: Luke! */
+	CURLOPT_FOLLOWLOCATION = CURLOPT("CURLOPT_FOLLOWLOCATION", CURLOPTTYPE_LONG, 52),
+
+	 /* transfer data in text/ASCII format */
+	CURLOPT_TRANSFERTEXT = CURLOPT("CURLOPT_TRANSFERTEXT", CURLOPTTYPE_LONG, 53),
+
+	/* HTTP PUT */
+	CURLOPT_PUT = CURLOPT("CURLOPT_PUT", CURLOPTTYPE_LONG, 54),
+
+	/* 55 = OBSOLETE */
+
+	/* DEPRECATED
+	 * Function that will be called instead of the internal progress display
+	 * function. This function should be defined as the curl_progress_callback
+	 * prototype defines. */
+	CURLOPT_PROGRESSFUNCTION = CURLOPT("CURLOPT_PROGRESSFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 56),
+
+	/* Data passed to the CURLOPT_PROGRESSFUNCTION and CURLOPT_XFERINFOFUNCTION
+	   callbacks */
+	CURLOPT_XFERINFODATA = CURLOPT("CURLOPT_XFERINFODATA", CURLOPTTYPE_CBPOINT, 57),
+	CURLOPT_PROGRESSDATA = CURLOPT_XFERINFODATA,
+
+	/* We want the referrer field set automatically when following locations */
+	CURLOPT_AUTOREFERER = CURLOPT("CURLOPT_AUTOREFERER", CURLOPTTYPE_LONG, 58),
+
+	/* Port of the proxy, can be set in the proxy string as well with:
+	   "[host]:[port]" */
+	CURLOPT_PROXYPORT = CURLOPT("CURLOPT_PROXYPORT", CURLOPTTYPE_LONG, 59),
+
+	/* size of the POST input data, if strlen() is not good to use */
+	CURLOPT_POSTFIELDSIZE = CURLOPT("CURLOPT_POSTFIELDSIZE", CURLOPTTYPE_LONG, 60),
+
+	/* tunnel non-http operations through a HTTP proxy */
+	CURLOPT_HTTPPROXYTUNNEL = CURLOPT("CURLOPT_HTTPPROXYTUNNEL", CURLOPTTYPE_LONG, 61),
+
+	/* Set the interface string to use as outgoing network interface */
+	CURLOPT_INTERFACE = CURLOPT("CURLOPT_INTERFACE", CURLOPTTYPE_STRINGPOINT, 62),
+
+	/* Set the krb4/5 security level, this also enables krb4/5 awareness.  This
+	 * is a string, 'clear', 'safe', 'confidential' or 'private'.  If the string
+	 * is set but doesn't match one of these, 'private' will be used.  */
+	CURLOPT_KRBLEVEL = CURLOPT("CURLOPT_KRBLEVEL", CURLOPTTYPE_STRINGPOINT, 63),
+
+	/* Set if we should verify the peer in ssl handshake, set 1 to verify. */
+	CURLOPT_SSL_VERIFYPEER = CURLOPT("CURLOPT_SSL_VERIFYPEER", CURLOPTTYPE_LONG, 64),
+
+	/* The CApath or CAfile used to validate the peer certificate
+	   this option is used only if SSL_VERIFYPEER is true */
+	CURLOPT_CAINFO = CURLOPT("CURLOPT_CAINFO", CURLOPTTYPE_STRINGPOINT, 65),
+
+	/* 66 = OBSOLETE */
+	/* 67 = OBSOLETE */
+
+	/* Maximum number of http redirects to follow */
+	CURLOPT_MAXREDIRS = CURLOPT("CURLOPT_MAXREDIRS", CURLOPTTYPE_LONG, 68),
+
+	/* Pass a long set to 1 to get the date of the requested document (if
+	   possible)! Pass a zero to shut it off. */
+	CURLOPT_FILETIME = CURLOPT("CURLOPT_FILETIME", CURLOPTTYPE_LONG, 69),
+
+	/* This points to a linked list of telnet options */
+	CURLOPT_TELNETOPTIONS = CURLOPT("CURLOPT_TELNETOPTIONS", CURLOPTTYPE_SLISTPOINT, 70),
+
+	/* Max amount of cached alive connections */
+	CURLOPT_MAXCONNECTS = CURLOPT("CURLOPT_MAXCONNECTS", CURLOPTTYPE_LONG, 71),
+
+	/* OBSOLETE, do not use! */
+	CURLOPT_OBSOLETE72 = CURLOPT("CURLOPT_OBSOLETE72", CURLOPTTYPE_LONG, 72),
+
+	/* 73 = OBSOLETE */
+
+	/* Set to explicitly use a new connection for the upcoming transfer.
+	   Do not use this unless you're absolutely sure of this, as it makes the
+	   operation slower and is less friendly for the network. */
+	CURLOPT_FRESH_CONNECT = CURLOPT("CURLOPT_FRESH_CONNECT", CURLOPTTYPE_LONG, 74),
+
+	/* Set to explicitly forbid the upcoming transfer's connection to be re-used
+	   when done. Do not use this unless you're absolutely sure of this, as it
+	   makes the operation slower and is less friendly for the network. */
+	CURLOPT_FORBID_REUSE = CURLOPT("CURLOPT_FORBID_REUSE", CURLOPTTYPE_LONG, 75),
+
+	/* Set to a file name that contains random data for libcurl to use to
+	   seed the random engine when doing SSL connects. */
+	CURLOPT_RANDOM_FILE = CURLOPT("CURLOPT_RANDOM_FILE", CURLOPTTYPE_STRINGPOINT, 76),
+
+	/* Set to the Entropy Gathering Daemon socket pathname */
+	CURLOPT_EGDSOCKET = CURLOPT("CURLOPT_EGDSOCKET", CURLOPTTYPE_STRINGPOINT, 77),
+
+	/* Time-out connect operations after this amount of seconds, if connects are
+	   OK within this time, then fine... This only aborts the connect phase. */
+	CURLOPT_CONNECTTIMEOUT = CURLOPT("CURLOPT_CONNECTTIMEOUT", CURLOPTTYPE_LONG, 78),
+
+	/* Function that will be called to store headers (instead of fwrite). The
+	 * parameters will use fwrite() syntax, make sure to follow them. */
+	CURLOPT_HEADERFUNCTION = CURLOPT("CURLOPT_HEADERFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 79),
+
+	/* Set this to force the HTTP request to get back to GET. Only really usable
+	   if POST, PUT or a custom request have been used first.
+	 */
+	CURLOPT_HTTPGET = CURLOPT("CURLOPT_HTTPGET", CURLOPTTYPE_LONG, 80),
+
+	/* Set if we should verify the Common name from the peer certificate in ssl
+	 * handshake, set 1 to check existence, 2 to ensure that it matches the
+	 * provided hostname. */
+	CURLOPT_SSL_VERIFYHOST = CURLOPT("CURLOPT_SSL_VERIFYHOST", CURLOPTTYPE_LONG, 81),
+
+	/* Specify which file name to write all known cookies in after completed
+	   operation. Set file name to "-" (dash) to make it go to stdout. */
+	CURLOPT_COOKIEJAR = CURLOPT("CURLOPT_COOKIEJAR", CURLOPTTYPE_STRINGPOINT, 82),
+
+	/* Specify which SSL ciphers to use */
+	CURLOPT_SSL_CIPHER_LIST = CURLOPT("CURLOPT_SSL_CIPHER_LIST", CURLOPTTYPE_STRINGPOINT, 83),
+
+	/* Specify which HTTP version to use! This must be set to one of the
+	   CURL_HTTP_VERSION* enums set below. */
+	CURLOPT_HTTP_VERSION = CURLOPT("CURLOPT_HTTP_VERSION", CURLOPTTYPE_VALUES, 84),
+
+	/* Specifically switch on or off the FTP engine's use of the EPSV command. By
+	   default, that one will always be attempted before the more traditional
+	   PASV command. */
+	CURLOPT_FTP_USE_EPSV = CURLOPT("CURLOPT_FTP_USE_EPSV", CURLOPTTYPE_LONG, 85),
+
+	/* type of the file keeping your SSL-certificate ("DER", "PEM", "ENG") */
+	CURLOPT_SSLCERTTYPE = CURLOPT("CURLOPT_SSLCERTTYPE", CURLOPTTYPE_STRINGPOINT, 86),
+
+	/* name of the file keeping your private SSL-key */
+	CURLOPT_SSLKEY = CURLOPT("CURLOPT_SSLKEY", CURLOPTTYPE_STRINGPOINT, 87),
+
+	/* type of the file keeping your private SSL-key ("DER", "PEM", "ENG") */
+	CURLOPT_SSLKEYTYPE = CURLOPT("CURLOPT_SSLKEYTYPE", CURLOPTTYPE_STRINGPOINT, 88),
+
+	/* crypto engine for the SSL-sub system */
+	CURLOPT_SSLENGINE = CURLOPT("CURLOPT_SSLENGINE", CURLOPTTYPE_STRINGPOINT, 89),
+
+	/* set the crypto engine for the SSL-sub system as default
+	   the param has no meaning...
+	 */
+	CURLOPT_SSLENGINE_DEFAULT = CURLOPT("CURLOPT_SSLENGINE_DEFAULT", CURLOPTTYPE_LONG, 90),
+
+	/* Non-zero value means to use the global dns cache */
+	/* DEPRECATED, do not use! */
+	CURLOPT_DNS_USE_GLOBAL_CACHE = CURLOPT("CURLOPT_DNS_USE_GLOBAL_CACHE", CURLOPTTYPE_LONG, 91),
+
+	/* DNS cache timeout */
+	CURLOPT_DNS_CACHE_TIMEOUT = CURLOPT("CURLOPT_DNS_CACHE_TIMEOUT", CURLOPTTYPE_LONG, 92),
+
+	/* send linked-list of pre-transfer QUOTE commands */
+	CURLOPT_PREQUOTE = CURLOPT("CURLOPT_PREQUOTE", CURLOPTTYPE_SLISTPOINT, 93),
+
+	/* set the debug function */
+	CURLOPT_DEBUGFUNCTION = CURLOPT("CURLOPT_DEBUGFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 94),
+
+	/* set the data for the debug function */
+	CURLOPT_DEBUGDATA = CURLOPT("CURLOPT_DEBUGDATA", CURLOPTTYPE_CBPOINT, 95),
+
+	/* mark this as start of a cookie session */
+	CURLOPT_COOKIESESSION = CURLOPT("CURLOPT_COOKIESESSION", CURLOPTTYPE_LONG, 96),
+
+	/* The CApath directory used to validate the peer certificate
+	   this option is used only if SSL_VERIFYPEER is true */
+	CURLOPT_CAPATH = CURLOPT("CURLOPT_CAPATH", CURLOPTTYPE_STRINGPOINT, 97),
+
+	/* Instruct libcurl to use a smaller receive buffer */
+	CURLOPT_BUFFERSIZE = CURLOPT("CURLOPT_BUFFERSIZE", CURLOPTTYPE_LONG, 98),
+
+	/* Instruct libcurl to not use any signal/alarm handlers, even when using
+	   timeouts. This option is useful for multi-threaded applications.
+	   See libcurl-the-guide for more background information. */
+	CURLOPT_NOSIGNAL = CURLOPT("CURLOPT_NOSIGNAL", CURLOPTTYPE_LONG, 99),
+
+	/* Provide a CURLShare for mutexing non-ts data */
+	CURLOPT_SHARE = CURLOPT("CURLOPT_SHARE", CURLOPTTYPE_OBJECTPOINT, 100),
+
+	/* indicates type of proxy. accepted values are CURLPROXY_HTTP (default),
+	   CURLPROXY_HTTPS, CURLPROXY_SOCKS4, CURLPROXY_SOCKS4A and
+	   CURLPROXY_SOCKS5. */
+	CURLOPT_PROXYTYPE = CURLOPT("CURLOPT_PROXYTYPE", CURLOPTTYPE_VALUES, 101),
+
+	/* Set the Accept-Encoding string. Use this to tell a server you would like
+	   the response to be compressed. Before 7.21.6, this was known as
+	   CURLOPT_ENCODING */
+	CURLOPT_ACCEPT_ENCODING = CURLOPT("CURLOPT_ACCEPT_ENCODING", CURLOPTTYPE_STRINGPOINT, 102),
+
+	/* Set pointer to private data */
+	CURLOPT_PRIVATE = CURLOPT("CURLOPT_PRIVATE", CURLOPTTYPE_OBJECTPOINT, 103),
+
+	/* Set aliases for HTTP 200 in the HTTP Response header */
+	CURLOPT_HTTP200ALIASES = CURLOPT("CURLOPT_HTTP200ALIASES", CURLOPTTYPE_SLISTPOINT, 104),
+
+	/* Continue to send authentication (user+password) when following locations,
+	   even when hostname changed. This can potentially send off the name
+	   and password to whatever host the server decides. */
+	CURLOPT_UNRESTRICTED_AUTH = CURLOPT("CURLOPT_UNRESTRICTED_AUTH", CURLOPTTYPE_LONG, 105),
+
+	/* Specifically switch on or off the FTP engine's use of the EPRT command (
+	   it also disables the LPRT attempt). By default, those ones will always be
+	   attempted before the good old traditional PORT command. */
+	CURLOPT_FTP_USE_EPRT = CURLOPT("CURLOPT_FTP_USE_EPRT", CURLOPTTYPE_LONG, 106),
+
+	/* Set this to a bitmask value to enable the particular authentications
+	   methods you like. Use this in combination with CURLOPT_USERPWD.
+	   Note that setting multiple bits may cause extra network round-trips. */
+	CURLOPT_HTTPAUTH = CURLOPT("CURLOPT_HTTPAUTH", CURLOPTTYPE_VALUES, 107),
+
+	/* Set the ssl context callback function, currently only for OpenSSL or
+	   WolfSSL ssl_ctx, or mbedTLS mbedtls_ssl_config in the second argument.
+	   The function must match the curl_ssl_ctx_callback prototype. */
+	CURLOPT_SSL_CTX_FUNCTION = CURLOPT("CURLOPT_SSL_CTX_FUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 108),
+
+	/* Set the userdata for the ssl context callback function's third
+	   argument */
+	CURLOPT_SSL_CTX_DATA = CURLOPT("CURLOPT_SSL_CTX_DATA", CURLOPTTYPE_CBPOINT, 109),
+
+	/* FTP Option that causes missing dirs to be created on the remote server.
+	   In 7.19.4 we introduced the convenience enums for this option using the
+	   CURLFTP_CREATE_DIR prefix.
+	*/
+	CURLOPT_FTP_CREATE_MISSING_DIRS = CURLOPT("CURLOPT_FTP_CREATE_MISSING_DIRS", CURLOPTTYPE_LONG, 110),
+
+	/* Set this to a bitmask value to enable the particular authentications
+	   methods you like. Use this in combination with CURLOPT_PROXYUSERPWD.
+	   Note that setting multiple bits may cause extra network round-trips. */
+	CURLOPT_PROXYAUTH = CURLOPT("CURLOPT_PROXYAUTH", CURLOPTTYPE_VALUES, 111),
+
+	/* FTP option that changes the timeout, in seconds, associated with
+	   getting a response.  This is different from transfer timeout time and
+	   essentially places a demand on the FTP server to acknowledge commands
+	   in a timely manner. */
+	CURLOPT_FTP_RESPONSE_TIMEOUT = CURLOPT("CURLOPT_FTP_RESPONSE_TIMEOUT", CURLOPTTYPE_LONG, 112),
+	CURLOPT_SERVER_RESPONSE_TIMEOUT = CURLOPT_FTP_RESPONSE_TIMEOUT,
+
+	/* Set this option to one of the CURL_IPRESOLVE_* defines (see below) to
+	   tell libcurl to resolve names to those IP versions only. This only has
+	   affect on systems with support for more than one, i.e IPv4 _and_ IPv6. */
+	CURLOPT_IPRESOLVE = CURLOPT("CURLOPT_IPRESOLVE", CURLOPTTYPE_VALUES, 113),
+
+	/* Set this option to limit the size of a file that will be downloaded from
+	   an HTTP or FTP server.
+	   Note there is also _LARGE version which adds large file support for
+	   platforms which have larger off_t sizes.  See MAXFILESIZE_LARGE below. */
+	CURLOPT_MAXFILESIZE = CURLOPT("CURLOPT_MAXFILESIZE", CURLOPTTYPE_LONG, 114),
+
+	/* See the comment for INFILESIZE above, but in short, specifies
+	 * the size of the file being uploaded.  -1 means unknown.
+	 */
+	CURLOPT_INFILESIZE_LARGE = CURLOPT("CURLOPT_INFILESIZE_LARGE", CURLOPTTYPE_OFF_T, 115),
+
+	/* Sets the continuation offset.  There is also a CURLOPTTYPE_LONG version
+	 * of this; look above for RESUME_FROM.
+	 */
+	CURLOPT_RESUME_FROM_LARGE = CURLOPT("CURLOPT_RESUME_FROM_LARGE", CURLOPTTYPE_OFF_T, 116),
+
+	/* Sets the maximum size of data that will be downloaded from
+	 * an HTTP or FTP server.  See MAXFILESIZE above for the LONG version.
+	 */
+	CURLOPT_MAXFILESIZE_LARGE = CURLOPT("CURLOPT_MAXFILESIZE_LARGE", CURLOPTTYPE_OFF_T, 117),
+
+	/* Set this option to the file name of your .netrc file you want libcurl
+	   to parse (using the CURLOPT_NETRC option). If not set, libcurl will do
+	   a poor attempt to find the user's home directory and check for a .netrc
+	   file in there. */
+	CURLOPT_NETRC_FILE = CURLOPT("CURLOPT_NETRC_FILE", CURLOPTTYPE_STRINGPOINT, 118),
+
+	/* Enable SSL/TLS for FTP, pick one of:
+	   CURLUSESSL_TRY     - try using SSL, proceed anyway otherwise
+	   CURLUSESSL_CONTROL - SSL for the control connection or fail
+	   CURLUSESSL_ALL     - SSL for all communication or fail
+	*/
+	CURLOPT_USE_SSL = CURLOPT("CURLOPT_USE_SSL", CURLOPTTYPE_VALUES, 119),
+
+	/* The _LARGE version of the standard POSTFIELDSIZE option */
+	CURLOPT_POSTFIELDSIZE_LARGE = CURLOPT("CURLOPT_POSTFIELDSIZE_LARGE", CURLOPTTYPE_OFF_T, 120),
+
+	/* Enable/disable the TCP Nagle algorithm */
+	CURLOPT_TCP_NODELAY = CURLOPT("CURLOPT_TCP_NODELAY", CURLOPTTYPE_LONG, 121),
+
+	/* 122 OBSOLETE, used in 7.12.3. Gone in 7.13.0 */
+	/* 123 OBSOLETE. Gone in 7.16.0 */
+	/* 124 OBSOLETE, used in 7.12.3. Gone in 7.13.0 */
+	/* 125 OBSOLETE, used in 7.12.3. Gone in 7.13.0 */
+	/* 126 OBSOLETE, used in 7.12.3. Gone in 7.13.0 */
+	/* 127 OBSOLETE. Gone in 7.16.0 */
+	/* 128 OBSOLETE. Gone in 7.16.0 */
+
+	/* When FTP over SSL/TLS is selected (with CURLOPT_USE_SSL), this option
+	   can be used to change libcurl's default action which is to first try
+	   "AUTH SSL" and then "AUTH TLS" in this order, and proceed when a OK
+	   response has been received.
+	   Available parameters are:
+	   CURLFTPAUTH_DEFAULT - let libcurl decide
+	   CURLFTPAUTH_SSL     - try "AUTH SSL" first, then TLS
+	   CURLFTPAUTH_TLS     - try "AUTH TLS" first, then SSL
+	*/
+	CURLOPT_FTPSSLAUTH = CURLOPT("CURLOPT_FTPSSLAUTH", CURLOPTTYPE_VALUES, 129),
+
+	CURLOPT_IOCTLFUNCTION = CURLOPT("CURLOPT_IOCTLFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 130),
+	CURLOPT_IOCTLDATA = CURLOPT("CURLOPT_IOCTLDATA", CURLOPTTYPE_CBPOINT, 131),
+
+	/* 132 OBSOLETE. Gone in 7.16.0 */
+	/* 133 OBSOLETE. Gone in 7.16.0 */
+
+	/* null-terminated string for pass on to the FTP server when asked for
+	   "account" info */
+	CURLOPT_FTP_ACCOUNT = CURLOPT("CURLOPT_FTP_ACCOUNT", CURLOPTTYPE_STRINGPOINT, 134),
+
+	/* feed cookie into cookie engine */
+	CURLOPT_COOKIELIST = CURLOPT("CURLOPT_COOKIELIST", CURLOPTTYPE_STRINGPOINT, 135),
+
+	/* ignore Content-Length */
+	CURLOPT_IGNORE_CONTENT_LENGTH = CURLOPT("CURLOPT_IGNORE_CONTENT_LENGTH", CURLOPTTYPE_LONG, 136),
+
+	/* Set to non-zero to skip the IP address received in a 227 PASV FTP server
+	   response. Typically used for FTP-SSL purposes but is not restricted to
+	   that. libcurl will then instead use the same IP address it used for the
+	   control connection. */
+	CURLOPT_FTP_SKIP_PASV_IP = CURLOPT("CURLOPT_FTP_SKIP_PASV_IP", CURLOPTTYPE_LONG, 137),
+
+	/* Select "file method" to use when doing FTP, see the curl_ftpmethod
+	   above. */
+	CURLOPT_FTP_FILEMETHOD = CURLOPT("CURLOPT_FTP_FILEMETHOD", CURLOPTTYPE_VALUES, 138),
+
+	/* Local port number to bind the socket to */
+	CURLOPT_LOCALPORT = CURLOPT("CURLOPT_LOCALPORT", CURLOPTTYPE_LONG, 139),
+
+	/* Number of ports to try, including the first one set with LOCALPORT.
+	   Thus, setting it to 1 will make no additional attempts but the first.
+	*/
+	CURLOPT_LOCALPORTRANGE = CURLOPT("CURLOPT_LOCALPORTRANGE", CURLOPTTYPE_LONG, 140),
+
+	/* no transfer, set up connection and let application use the socket by
+	   extracting it with CURLINFO_LASTSOCKET */
+	CURLOPT_CONNECT_ONLY = CURLOPT("CURLOPT_CONNECT_ONLY", CURLOPTTYPE_LONG, 141),
+
+	/* Function that will be called to convert from the
+	   network encoding (instead of using the iconv calls in libcurl) */
+	CURLOPT_CONV_FROM_NETWORK_FUNCTION = CURLOPT("CURLOPT_CONV_FROM_NETWORK_FUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 142),
+
+	/* Function that will be called to convert to the
+	   network encoding (instead of using the iconv calls in libcurl) */
+	CURLOPT_CONV_TO_NETWORK_FUNCTION = CURLOPT("CURLOPT_CONV_TO_NETWORK_FUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 143),
+
+	/* Function that will be called to convert from UTF8
+	   (instead of using the iconv calls in libcurl)
+	   Note that this is used only for SSL certificate processing */
+	CURLOPT_CONV_FROM_UTF8_FUNCTION = CURLOPT("CURLOPT_CONV_FROM_UTF8_FUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 144),
+
+	/* if the connection proceeds too quickly then need to slow it down */
+	/* limit-rate: maximum number of bytes per second to send or receive */
+	CURLOPT_MAX_SEND_SPEED_LARGE = CURLOPT("CURLOPT_MAX_SEND_SPEED_LARGE", CURLOPTTYPE_OFF_T, 145),
+	CURLOPT_MAX_RECV_SPEED_LARGE = CURLOPT("CURLOPT_MAX_RECV_SPEED_LARGE", CURLOPTTYPE_OFF_T, 146),
+
+	/* Pointer to command string to send if USER/PASS fails. */
+	CURLOPT_FTP_ALTERNATIVE_TO_USER = CURLOPT("CURLOPT_FTP_ALTERNATIVE_TO_USER", CURLOPTTYPE_STRINGPOINT, 147),
+
+	/* callback function for setting socket options */
+	CURLOPT_SOCKOPTFUNCTION = CURLOPT("CURLOPT_SOCKOPTFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 148),
+	CURLOPT_SOCKOPTDATA = CURLOPT("CURLOPT_SOCKOPTDATA", CURLOPTTYPE_CBPOINT, 149),
+
+	/* set to 0 to disable session ID re-use for this transfer, default is
+	   enabled (== 1) */
+	CURLOPT_SSL_SESSIONID_CACHE = CURLOPT("CURLOPT_SSL_SESSIONID_CACHE", CURLOPTTYPE_LONG, 150),
+
+	/* allowed SSH authentication methods */
+	CURLOPT_SSH_AUTH_TYPES = CURLOPT("CURLOPT_SSH_AUTH_TYPES", CURLOPTTYPE_VALUES, 151),
+
+	/* Used by scp/sftp to do public/private key authentication */
+	CURLOPT_SSH_PUBLIC_KEYFILE = CURLOPT("CURLOPT_SSH_PUBLIC_KEYFILE", CURLOPTTYPE_STRINGPOINT, 152),
+	CURLOPT_SSH_PRIVATE_KEYFILE = CURLOPT("CURLOPT_SSH_PRIVATE_KEYFILE", CURLOPTTYPE_STRINGPOINT, 153),
+
+	/* Send CCC (Clear Command Channel) after authentication */
+	CURLOPT_FTP_SSL_CCC = CURLOPT("CURLOPT_FTP_SSL_CCC", CURLOPTTYPE_LONG, 154),
+
+	/* Same as TIMEOUT and CONNECTTIMEOUT, but with ms resolution */
+	CURLOPT_TIMEOUT_MS = CURLOPT("CURLOPT_TIMEOUT_MS", CURLOPTTYPE_LONG, 155),
+	CURLOPT_CONNECTTIMEOUT_MS = CURLOPT("CURLOPT_CONNECTTIMEOUT_MS", CURLOPTTYPE_LONG, 156),
+
+	/* set to zero to disable the libcurl's decoding and thus pass the raw body
+	   data to the application even when it is encoded/compressed */
+	CURLOPT_HTTP_TRANSFER_DECODING = CURLOPT("CURLOPT_HTTP_TRANSFER_DECODING", CURLOPTTYPE_LONG, 157),
+	CURLOPT_HTTP_CONTENT_DECODING = CURLOPT("CURLOPT_HTTP_CONTENT_DECODING", CURLOPTTYPE_LONG, 158),
+
+	/* Permission used when creating new files and directories on the remote
+	   server for protocols that support it, SFTP/SCP/FILE */
+	CURLOPT_NEW_FILE_PERMS = CURLOPT("CURLOPT_NEW_FILE_PERMS", CURLOPTTYPE_LONG, 159),
+	CURLOPT_NEW_DIRECTORY_PERMS = CURLOPT("CURLOPT_NEW_DIRECTORY_PERMS", CURLOPTTYPE_LONG, 160),
+
+	/* Set the behaviour of POST when redirecting. Values must be set to one
+	   of CURL_REDIR* defines below. This used to be called CURLOPT_POST301 */
+	CURLOPT_POSTREDIR = CURLOPT("CURLOPT_POSTREDIR", CURLOPTTYPE_VALUES, 161),
+
+	/* used by scp/sftp to verify the host's public key */
+	CURLOPT_SSH_HOST_PUBLIC_KEY_MD5 = CURLOPT("CURLOPT_SSH_HOST_PUBLIC_KEY_MD5", CURLOPTTYPE_STRINGPOINT, 162),
+
+	/* Callback function for opening socket (instead of socket(2)). Optionally,
+	   callback is able change the address or refuse to connect returning
+	   CURL_SOCKET_BAD.  The callback should have type
+	   curl_opensocket_callback */
+	CURLOPT_OPENSOCKETFUNCTION = CURLOPT("CURLOPT_OPENSOCKETFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 163),
+	CURLOPT_OPENSOCKETDATA = CURLOPT("CURLOPT_OPENSOCKETDATA", CURLOPTTYPE_CBPOINT, 164),
+
+	/* POST volatile input fields. */
+	CURLOPT_COPYPOSTFIELDS = CURLOPT("CURLOPT_COPYPOSTFIELDS", CURLOPTTYPE_OBJECTPOINT, 165),
+
+	/* set transfer mode (;type=<a|i>) when doing FTP via an HTTP proxy */
+	CURLOPT_PROXY_TRANSFER_MODE = CURLOPT("CURLOPT_PROXY_TRANSFER_MODE", CURLOPTTYPE_LONG, 166),
+
+	/* Callback function for seeking in the input stream */
+	CURLOPT_SEEKFUNCTION = CURLOPT("CURLOPT_SEEKFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 167),
+	CURLOPT_SEEKDATA = CURLOPT("CURLOPT_SEEKDATA", CURLOPTTYPE_CBPOINT, 168),
+
+	/* CRL file */
+	CURLOPT_CRLFILE = CURLOPT("CURLOPT_CRLFILE", CURLOPTTYPE_STRINGPOINT, 169),
+
+	/* Issuer certificate */
+	CURLOPT_ISSUERCERT = CURLOPT("CURLOPT_ISSUERCERT", CURLOPTTYPE_STRINGPOINT, 170),
+
+	/* (IPv6) Address scope */
+	CURLOPT_ADDRESS_SCOPE = CURLOPT("CURLOPT_ADDRESS_SCOPE", CURLOPTTYPE_LONG, 171),
+
+	/* Collect certificate chain info and allow it to get retrievable with
+	   CURLINFO_CERTINFO after the transfer is complete. */
+	CURLOPT_CERTINFO = CURLOPT("CURLOPT_CERTINFO", CURLOPTTYPE_LONG, 172),
+
+	/* "name" and "pwd" to use when fetching. */
+	CURLOPT_USERNAME = CURLOPT("CURLOPT_USERNAME", CURLOPTTYPE_STRINGPOINT, 173),
+	CURLOPT_PASSWORD = CURLOPT("CURLOPT_PASSWORD", CURLOPTTYPE_STRINGPOINT, 174),
+
+	  /* "name" and "pwd" to use with Proxy when fetching. */
+	CURLOPT_PROXYUSERNAME = CURLOPT("CURLOPT_PROXYUSERNAME", CURLOPTTYPE_STRINGPOINT, 175),
+	CURLOPT_PROXYPASSWORD = CURLOPT("CURLOPT_PROXYPASSWORD", CURLOPTTYPE_STRINGPOINT, 176),
+
+	/* Comma separated list of hostnames defining no-proxy zones. These should
+	   match both hostnames directly, and hostnames within a domain. For
+	   example, local.com will match local.com and www.local.com, but NOT
+	   notlocal.com or www.notlocal.com. For compatibility with other
+	   implementations of this, .local.com will be considered to be the same as
+	   local.com. A single * is the only valid wildcard, and effectively
+	   disables the use of proxy. */
+	CURLOPT_NOPROXY = CURLOPT("CURLOPT_NOPROXY", CURLOPTTYPE_STRINGPOINT, 177),
+
+	/* block size for TFTP transfers */
+	CURLOPT_TFTP_BLKSIZE = CURLOPT("CURLOPT_TFTP_BLKSIZE", CURLOPTTYPE_LONG, 178),
+
+	/* Socks Service */
+	/* DEPRECATED, do not use! */
+	CURLOPT_SOCKS5_GSSAPI_SERVICE = CURLOPT("CURLOPT_SOCKS5_GSSAPI_SERVICE", CURLOPTTYPE_STRINGPOINT, 179),
+
+	/* Socks Service */
+	CURLOPT_SOCKS5_GSSAPI_NEC = CURLOPT("CURLOPT_SOCKS5_GSSAPI_NEC", CURLOPTTYPE_LONG, 180),
+
+	/* set the bitmask for the protocols that are allowed to be used for the
+	   transfer, which thus helps the app which takes URLs from users or other
+	   external inputs and want to restrict what protocol(s) to deal
+	   with. Defaults to CURLPROTO_ALL. */
+	CURLOPT_PROTOCOLS = CURLOPT("CURLOPT_PROTOCOLS", CURLOPTTYPE_LONG, 181),
+
+	/* set the bitmask for the protocols that libcurl is allowed to follow to,
+	   as a subset of the CURLOPT_PROTOCOLS ones. That means the protocol needs
+	   to be set in both bitmasks to be allowed to get redirected to. */
+	CURLOPT_REDIR_PROTOCOLS = CURLOPT("CURLOPT_REDIR_PROTOCOLS", CURLOPTTYPE_LONG, 182),
+
+	/* set the SSH knownhost file name to use */
+	CURLOPT_SSH_KNOWNHOSTS = CURLOPT("CURLOPT_SSH_KNOWNHOSTS", CURLOPTTYPE_STRINGPOINT, 183),
+
+	/* set the SSH host key callback, must point to a curl_sshkeycallback
+	   function */
+	CURLOPT_SSH_KEYFUNCTION = CURLOPT("CURLOPT_SSH_KEYFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 184),
+
+	/* set the SSH host key callback custom pointer */
+	CURLOPT_SSH_KEYDATA = CURLOPT("CURLOPT_SSH_KEYDATA", CURLOPTTYPE_CBPOINT, 185),
+
+	/* set the SMTP mail originator */
+	CURLOPT_MAIL_FROM = CURLOPT("CURLOPT_MAIL_FROM", CURLOPTTYPE_STRINGPOINT, 186),
+
+	/* set the list of SMTP mail receiver(s) */
+	CURLOPT_MAIL_RCPT = CURLOPT("CURLOPT_MAIL_RCPT", CURLOPTTYPE_SLISTPOINT, 187),
+
+	/* FTP: send PRET before PASV */
+	CURLOPT_FTP_USE_PRET = CURLOPT("CURLOPT_FTP_USE_PRET", CURLOPTTYPE_LONG, 188),
+
+	/* RTSP request method (OPTIONS, SETUP, PLAY, etc...) */
+	CURLOPT_RTSP_REQUEST = CURLOPT("CURLOPT_RTSP_REQUEST", CURLOPTTYPE_VALUES, 189),
+
+	/* The RTSP session identifier */
+	CURLOPT_RTSP_SESSION_ID = CURLOPT("CURLOPT_RTSP_SESSION_ID", CURLOPTTYPE_STRINGPOINT, 190),
+
+	/* The RTSP stream URI */
+	CURLOPT_RTSP_STREAM_URI = CURLOPT("CURLOPT_RTSP_STREAM_URI", CURLOPTTYPE_STRINGPOINT, 191),
+
+	/* The Transport: header to use in RTSP requests */
+	CURLOPT_RTSP_TRANSPORT = CURLOPT("CURLOPT_RTSP_TRANSPORT", CURLOPTTYPE_STRINGPOINT, 192),
+
+	/* Manually initialize the client RTSP CSeq for this handle */
+	CURLOPT_RTSP_CLIENT_CSEQ = CURLOPT("CURLOPT_RTSP_CLIENT_CSEQ", CURLOPTTYPE_LONG, 193),
+
+	/* Manually initialize the server RTSP CSeq for this handle */
+	CURLOPT_RTSP_SERVER_CSEQ = CURLOPT("CURLOPT_RTSP_SERVER_CSEQ", CURLOPTTYPE_LONG, 194),
+
+	/* The stream to pass to INTERLEAVEFUNCTION. */
+	CURLOPT_INTERLEAVEDATA = CURLOPT("CURLOPT_INTERLEAVEDATA", CURLOPTTYPE_CBPOINT, 195),
+
+	/* Let the application define a custom write method for RTP data */
+	CURLOPT_INTERLEAVEFUNCTION = CURLOPT("CURLOPT_INTERLEAVEFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 196),
+
+	/* Turn on wildcard matching */
+	CURLOPT_WILDCARDMATCH = CURLOPT("CURLOPT_WILDCARDMATCH", CURLOPTTYPE_LONG, 197),
+
+	/* Directory matching callback called before downloading of an
+	   individual file (chunk) started */
+	CURLOPT_CHUNK_BGN_FUNCTION = CURLOPT("CURLOPT_CHUNK_BGN_FUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 198),
+
+	/* Directory matching callback called after the file (chunk)
+	   was downloaded, or skipped */
+	CURLOPT_CHUNK_END_FUNCTION = CURLOPT("CURLOPT_CHUNK_END_FUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 199),
+
+	/* Change match (fnmatch-like) callback for wildcard matching */
+	CURLOPT_FNMATCH_FUNCTION = CURLOPT("CURLOPT_FNMATCH_FUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 200),
+
+	/* Let the application define custom chunk data pointer */
+	CURLOPT_CHUNK_DATA = CURLOPT("CURLOPT_CHUNK_DATA", CURLOPTTYPE_CBPOINT, 201),
+
+	/* FNMATCH_FUNCTION user pointer */
+	CURLOPT_FNMATCH_DATA = CURLOPT("CURLOPT_FNMATCH_DATA", CURLOPTTYPE_CBPOINT, 202),
+
+	/* send linked-list of name:port:address sets */
+	CURLOPT_RESOLVE = CURLOPT("CURLOPT_RESOLVE", CURLOPTTYPE_SLISTPOINT, 203),
+
+	/* Set a username for authenticated TLS */
+	CURLOPT_TLSAUTH_USERNAME = CURLOPT("CURLOPT_TLSAUTH_USERNAME", CURLOPTTYPE_STRINGPOINT, 204),
+
+	/* Set a password for authenticated TLS */
+	CURLOPT_TLSAUTH_PASSWORD = CURLOPT("CURLOPT_TLSAUTH_PASSWORD", CURLOPTTYPE_STRINGPOINT, 205),
+
+	/* Set authentication type for authenticated TLS */
+	CURLOPT_TLSAUTH_TYPE = CURLOPT("CURLOPT_TLSAUTH_TYPE", CURLOPTTYPE_STRINGPOINT, 206),
+
+	/* Set to 1 to enable the "TE:" header in HTTP requests to ask for
+	   compressed transfer-encoded responses. Set to 0 to disable the use of TE:
+	   in outgoing requests. The current default is 0, but it might change in a
+	   future libcurl release.
+	   libcurl will ask for the compressed methods it knows of, and if that
+	   isn't any, it will not ask for transfer-encoding at all even if this
+	   option is set to 1.
+	*/
+	CURLOPT_TRANSFER_ENCODING = CURLOPT("CURLOPT_TRANSFER_ENCODING", CURLOPTTYPE_LONG, 207),
+
+	/* Callback function for closing socket (instead of close(2)). The callback
+	   should have type curl_closesocket_callback */
+	CURLOPT_CLOSESOCKETFUNCTION = CURLOPT("CURLOPT_CLOSESOCKETFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 208),
+	CURLOPT_CLOSESOCKETDATA = CURLOPT("CURLOPT_CLOSESOCKETDATA", CURLOPTTYPE_CBPOINT, 209),
+
+	/* allow GSSAPI credential delegation */
+	CURLOPT_GSSAPI_DELEGATION = CURLOPT("CURLOPT_GSSAPI_DELEGATION", CURLOPTTYPE_VALUES, 210),
+
+	/* Set the name servers to use for DNS resolution */
+	CURLOPT_DNS_SERVERS = CURLOPT("CURLOPT_DNS_SERVERS", CURLOPTTYPE_STRINGPOINT, 211),
+
+	/* Time-out accept operations (currently for FTP only) after this amount
+	   of milliseconds. */
+	CURLOPT_ACCEPTTIMEOUT_MS = CURLOPT("CURLOPT_ACCEPTTIMEOUT_MS", CURLOPTTYPE_LONG, 212),
+
+	/* Set TCP keepalive */
+	CURLOPT_TCP_KEEPALIVE = CURLOPT("CURLOPT_TCP_KEEPALIVE", CURLOPTTYPE_LONG, 213),
+
+	/* non-universal keepalive knobs (Linux, AIX, HP-UX, more) */
+	CURLOPT_TCP_KEEPIDLE = CURLOPT("CURLOPT_TCP_KEEPIDLE", CURLOPTTYPE_LONG, 214),
+	CURLOPT_TCP_KEEPINTVL = CURLOPT("CURLOPT_TCP_KEEPINTVL", CURLOPTTYPE_LONG, 215),
+
+	/* Enable/disable specific SSL features with a bitmask, see CURLSSLOPT_* */
+	CURLOPT_SSL_OPTIONS = CURLOPT("CURLOPT_SSL_OPTIONS", CURLOPTTYPE_VALUES, 216),
+
+	/* Set the SMTP auth originator */
+	CURLOPT_MAIL_AUTH = CURLOPT("CURLOPT_MAIL_AUTH", CURLOPTTYPE_STRINGPOINT, 217),
+
+	/* Enable/disable SASL initial response */
+	CURLOPT_SASL_IR = CURLOPT("CURLOPT_SASL_IR", CURLOPTTYPE_LONG, 218),
+
+	/* Function that will be called instead of the internal progress display
+	 * function. This function should be defined as the curl_xferinfo_callback
+	 * prototype defines. (Deprecates CURLOPT_PROGRESSFUNCTION) */
+	CURLOPT_XFERINFOFUNCTION = CURLOPT("CURLOPT_XFERINFOFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 219),
+
+	/* The XOAUTH2 bearer token */
+	CURLOPT_XOAUTH2_BEARER = CURLOPT("CURLOPT_XOAUTH2_BEARER", CURLOPTTYPE_STRINGPOINT, 220),
+
+	/* Set the interface string to use as outgoing network
+	 * interface for DNS requests.
+	 * Only supported by the c-ares DNS backend */
+	CURLOPT_DNS_INTERFACE = CURLOPT("CURLOPT_DNS_INTERFACE", CURLOPTTYPE_STRINGPOINT, 221),
+
+	/* Set the local IPv4 address to use for outgoing DNS requests.
+	 * Only supported by the c-ares DNS backend */
+	CURLOPT_DNS_LOCAL_IP4 = CURLOPT("CURLOPT_DNS_LOCAL_IP4", CURLOPTTYPE_STRINGPOINT, 222),
+
+	/* Set the local IPv6 address to use for outgoing DNS requests.
+	 * Only supported by the c-ares DNS backend */
+	CURLOPT_DNS_LOCAL_IP6 = CURLOPT("CURLOPT_DNS_LOCAL_IP6", CURLOPTTYPE_STRINGPOINT, 223),
+
+	/* Set authentication options directly */
+	CURLOPT_LOGIN_OPTIONS = CURLOPT("CURLOPT_LOGIN_OPTIONS", CURLOPTTYPE_STRINGPOINT, 224),
+
+	/* Enable/disable TLS NPN extension (http2 over ssl might fail without) */
+	CURLOPT_SSL_ENABLE_NPN = CURLOPT("CURLOPT_SSL_ENABLE_NPN", CURLOPTTYPE_LONG, 225),
+
+	/* Enable/disable TLS ALPN extension (http2 over ssl might fail without) */
+	CURLOPT_SSL_ENABLE_ALPN = CURLOPT("CURLOPT_SSL_ENABLE_ALPN", CURLOPTTYPE_LONG, 226),
+
+	/* Time to wait for a response to a HTTP request containing an
+	 * Expect: 100-continue header before sending the data anyway. */
+	CURLOPT_EXPECT_100_TIMEOUT_MS = CURLOPT("CURLOPT_EXPECT_100_TIMEOUT_MS", CURLOPTTYPE_LONG, 227),
+
+	/* This points to a linked list of headers used for proxy requests only,
+	   struct curl_slist kind */
+	CURLOPT_PROXYHEADER = CURLOPT("CURLOPT_PROXYHEADER", CURLOPTTYPE_SLISTPOINT, 228),
+
+	/* Pass in a bitmask of "header options" */
+	CURLOPT_HEADEROPT = CURLOPT("CURLOPT_HEADEROPT", CURLOPTTYPE_VALUES, 229),
+
+	/* The public key in DER form used to validate the peer public key
+	   this option is used only if SSL_VERIFYPEER is true */
+	CURLOPT_PINNEDPUBLICKEY = CURLOPT("CURLOPT_PINNEDPUBLICKEY", CURLOPTTYPE_STRINGPOINT, 230),
+
+	/* Path to Unix domain socket */
+	CURLOPT_UNIX_SOCKET_PATH = CURLOPT("CURLOPT_UNIX_SOCKET_PATH", CURLOPTTYPE_STRINGPOINT, 231),
+
+	/* Set if we should verify the certificate status. */
+	CURLOPT_SSL_VERIFYSTATUS = CURLOPT("CURLOPT_SSL_VERIFYSTATUS", CURLOPTTYPE_LONG, 232),
+
+	/* Set if we should enable TLS false start. */
+	CURLOPT_SSL_FALSESTART = CURLOPT("CURLOPT_SSL_FALSESTART", CURLOPTTYPE_LONG, 233),
+
+	/* Do not squash dot-dot sequences */
+	CURLOPT_PATH_AS_IS = CURLOPT("CURLOPT_PATH_AS_IS", CURLOPTTYPE_LONG, 234),
+
+	/* Proxy Service Name */
+	CURLOPT_PROXY_SERVICE_NAME = CURLOPT("CURLOPT_PROXY_SERVICE_NAME", CURLOPTTYPE_STRINGPOINT, 235),
+
+	/* Service Name */
+	CURLOPT_SERVICE_NAME = CURLOPT("CURLOPT_SERVICE_NAME", CURLOPTTYPE_STRINGPOINT, 236),
+
+	/* Wait/don't wait for pipe/mutex to clarify */
+	CURLOPT_PIPEWAIT = CURLOPT("CURLOPT_PIPEWAIT", CURLOPTTYPE_LONG, 237),
+
+	/* Set the protocol used when curl is given a URL without a protocol */
+	CURLOPT_DEFAULT_PROTOCOL = CURLOPT("CURLOPT_DEFAULT_PROTOCOL", CURLOPTTYPE_STRINGPOINT, 238),
+
+	/* Set stream weight, 1 - 256 (default is 16) */
+	CURLOPT_STREAM_WEIGHT = CURLOPT("CURLOPT_STREAM_WEIGHT", CURLOPTTYPE_LONG, 239),
+
+	/* Set stream dependency on another CURL handle */
+	CURLOPT_STREAM_DEPENDS = CURLOPT("CURLOPT_STREAM_DEPENDS", CURLOPTTYPE_OBJECTPOINT, 240),
+
+	/* Set E-xclusive stream dependency on another CURL handle */
+	CURLOPT_STREAM_DEPENDS_E = CURLOPT("CURLOPT_STREAM_DEPENDS_E", CURLOPTTYPE_OBJECTPOINT, 241),
+
+	/* Do not send any tftp option requests to the server */
+	CURLOPT_TFTP_NO_OPTIONS = CURLOPT("CURLOPT_TFTP_NO_OPTIONS", CURLOPTTYPE_LONG, 242),
+
+	/* Linked-list of host:port:connect-to-host:connect-to-port,
+	   overrides the URL's host:port (only for the network layer) */
+	CURLOPT_CONNECT_TO = CURLOPT("CURLOPT_CONNECT_TO", CURLOPTTYPE_SLISTPOINT, 243),
+
+	/* Set TCP Fast Open */
+	CURLOPT_TCP_FASTOPEN = CURLOPT("CURLOPT_TCP_FASTOPEN", CURLOPTTYPE_LONG, 244),
+
+	/* Continue to send data if the server responds early with an
+	 * HTTP status code >= 300 */
+	CURLOPT_KEEP_SENDING_ON_ERROR = CURLOPT("CURLOPT_KEEP_SENDING_ON_ERROR", CURLOPTTYPE_LONG, 245),
+
+	/* The CApath or CAfile used to validate the proxy certificate
+	   this option is used only if PROXY_SSL_VERIFYPEER is true */
+	CURLOPT_PROXY_CAINFO = CURLOPT("CURLOPT_PROXY_CAINFO", CURLOPTTYPE_STRINGPOINT, 246),
+
+	/* The CApath directory used to validate the proxy certificate
+	   this option is used only if PROXY_SSL_VERIFYPEER is true */
+	CURLOPT_PROXY_CAPATH = CURLOPT("CURLOPT_PROXY_CAPATH", CURLOPTTYPE_STRINGPOINT, 247),
+
+	/* Set if we should verify the proxy in ssl handshake,
+	   set 1 to verify. */
+	CURLOPT_PROXY_SSL_VERIFYPEER = CURLOPT("CURLOPT_PROXY_SSL_VERIFYPEER", CURLOPTTYPE_LONG, 248),
+
+	/* Set if we should verify the Common name from the proxy certificate in ssl
+	 * handshake, set 1 to check existence, 2 to ensure that it matches
+	 * the provided hostname. */
+	CURLOPT_PROXY_SSL_VERIFYHOST = CURLOPT("CURLOPT_PROXY_SSL_VERIFYHOST", CURLOPTTYPE_LONG, 249),
+
+	/* What version to specifically try to use for proxy.
+	   See CURL_SSLVERSION defines below. */
+	CURLOPT_PROXY_SSLVERSION = CURLOPT("CURLOPT_PROXY_SSLVERSION", CURLOPTTYPE_VALUES, 250),
+
+	/* Set a username for authenticated TLS for proxy */
+	CURLOPT_PROXY_TLSAUTH_USERNAME = CURLOPT("CURLOPT_PROXY_TLSAUTH_USERNAME", CURLOPTTYPE_STRINGPOINT, 251),
+
+	/* Set a password for authenticated TLS for proxy */
+	CURLOPT_PROXY_TLSAUTH_PASSWORD = CURLOPT("CURLOPT_PROXY_TLSAUTH_PASSWORD", CURLOPTTYPE_STRINGPOINT, 252),
+
+	/* Set authentication type for authenticated TLS for proxy */
+	CURLOPT_PROXY_TLSAUTH_TYPE = CURLOPT("CURLOPT_PROXY_TLSAUTH_TYPE", CURLOPTTYPE_STRINGPOINT, 253),
+
+	/* name of the file keeping your private SSL-certificate for proxy */
+	CURLOPT_PROXY_SSLCERT = CURLOPT("CURLOPT_PROXY_SSLCERT", CURLOPTTYPE_STRINGPOINT, 254),
+
+	/* type of the file keeping your SSL-certificate ("DER", "PEM", "ENG") for
+	   proxy */
+	CURLOPT_PROXY_SSLCERTTYPE = CURLOPT("CURLOPT_PROXY_SSLCERTTYPE", CURLOPTTYPE_STRINGPOINT, 255),
+
+	/* name of the file keeping your private SSL-key for proxy */
+	CURLOPT_PROXY_SSLKEY = CURLOPT("CURLOPT_PROXY_SSLKEY", CURLOPTTYPE_STRINGPOINT, 256),
+
+	/* type of the file keeping your private SSL-key ("DER", "PEM", "ENG") for
+	   proxy */
+	CURLOPT_PROXY_SSLKEYTYPE = CURLOPT("CURLOPT_PROXY_SSLKEYTYPE", CURLOPTTYPE_STRINGPOINT, 257),
+
+	/* password for the SSL private key for proxy */
+	CURLOPT_PROXY_KEYPASSWD = CURLOPT("CURLOPT_PROXY_KEYPASSWD", CURLOPTTYPE_STRINGPOINT, 258),
+
+	/* Specify which SSL ciphers to use for proxy */
+	CURLOPT_PROXY_SSL_CIPHER_LIST = CURLOPT("CURLOPT_PROXY_SSL_CIPHER_LIST", CURLOPTTYPE_STRINGPOINT, 259),
+
+	/* CRL file for proxy */
+	CURLOPT_PROXY_CRLFILE = CURLOPT("CURLOPT_PROXY_CRLFILE", CURLOPTTYPE_STRINGPOINT, 260),
+
+	/* Enable/disable specific SSL features with a bitmask for proxy, see
+	   CURLSSLOPT_* */
+	CURLOPT_PROXY_SSL_OPTIONS = CURLOPT("CURLOPT_PROXY_SSL_OPTIONS", CURLOPTTYPE_LONG, 261),
+
+	/* Name of pre proxy to use. */
+	CURLOPT_PRE_PROXY = CURLOPT("CURLOPT_PRE_PROXY", CURLOPTTYPE_STRINGPOINT, 262),
+
+	/* The public key in DER form used to validate the proxy public key
+	   this option is used only if PROXY_SSL_VERIFYPEER is true */
+	CURLOPT_PROXY_PINNEDPUBLICKEY = CURLOPT("CURLOPT_PROXY_PINNEDPUBLICKEY", CURLOPTTYPE_STRINGPOINT, 263),
+
+	/* Path to an abstract Unix domain socket */
+	CURLOPT_ABSTRACT_UNIX_SOCKET = CURLOPT("CURLOPT_ABSTRACT_UNIX_SOCKET", CURLOPTTYPE_STRINGPOINT, 264),
+
+	/* Suppress proxy CONNECT response headers from user callbacks */
+	CURLOPT_SUPPRESS_CONNECT_HEADERS = CURLOPT("CURLOPT_SUPPRESS_CONNECT_HEADERS", CURLOPTTYPE_LONG, 265),
+
+	/* The request target, instead of extracted from the URL */
+	CURLOPT_REQUEST_TARGET = CURLOPT("CURLOPT_REQUEST_TARGET", CURLOPTTYPE_STRINGPOINT, 266),
+
+	/* bitmask of allowed auth methods for connections to SOCKS5 proxies */
+	CURLOPT_SOCKS5_AUTH = CURLOPT("CURLOPT_SOCKS5_AUTH", CURLOPTTYPE_LONG, 267),
+
+	/* Enable/disable SSH compression */
+	CURLOPT_SSH_COMPRESSION = CURLOPT("CURLOPT_SSH_COMPRESSION", CURLOPTTYPE_LONG, 268),
+
+	/* Post MIME data. */
+	CURLOPT_MIMEPOST = CURLOPT("CURLOPT_MIMEPOST", CURLOPTTYPE_OBJECTPOINT, 269),
+
+	/* Time to use with the CURLOPT_TIMECONDITION. Specified in number of
+	   seconds since 1 Jan 1970. */
+	CURLOPT_TIMEVALUE_LARGE = CURLOPT("CURLOPT_TIMEVALUE_LARGE", CURLOPTTYPE_OFF_T, 270),
+
+	/* Head start in milliseconds to give happy eyeballs. */
+	CURLOPT_HAPPY_EYEBALLS_TIMEOUT_MS = CURLOPT("CURLOPT_HAPPY_EYEBALLS_TIMEOUT_MS", CURLOPTTYPE_LONG, 271),
+
+	/* Function that will be called before a resolver request is made */
+	CURLOPT_RESOLVER_START_FUNCTION = CURLOPT("CURLOPT_RESOLVER_START_FUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 272),
+
+	/* User data to pass to the resolver start callback. */
+	CURLOPT_RESOLVER_START_DATA = CURLOPT("CURLOPT_RESOLVER_START_DATA", CURLOPTTYPE_CBPOINT, 273),
+
+	/* send HAProxy PROXY protocol header? */
+	CURLOPT_HAPROXYPROTOCOL = CURLOPT("CURLOPT_HAPROXYPROTOCOL", CURLOPTTYPE_LONG, 274),
+
+	/* shuffle addresses before use when DNS returns multiple */
+	CURLOPT_DNS_SHUFFLE_ADDRESSES = CURLOPT("CURLOPT_DNS_SHUFFLE_ADDRESSES", CURLOPTTYPE_LONG, 275),
+
+	/* Specify which TLS 1.3 ciphers suites to use */
+	CURLOPT_TLS13_CIPHERS = CURLOPT("CURLOPT_TLS13_CIPHERS", CURLOPTTYPE_STRINGPOINT, 276),
+	CURLOPT_PROXY_TLS13_CIPHERS = CURLOPT("CURLOPT_PROXY_TLS13_CIPHERS", CURLOPTTYPE_STRINGPOINT, 277),
+
+	/* Disallow specifying username/login in URL. */
+	CURLOPT_DISALLOW_USERNAME_IN_URL = CURLOPT("CURLOPT_DISALLOW_USERNAME_IN_URL", CURLOPTTYPE_LONG, 278),
+
+	/* DNS-over-HTTPS URL */
+	CURLOPT_DOH_URL = CURLOPT("CURLOPT_DOH_URL", CURLOPTTYPE_STRINGPOINT, 279),
+
+	/* Preferred buffer size to use for uploads */
+	CURLOPT_UPLOAD_BUFFERSIZE = CURLOPT("CURLOPT_UPLOAD_BUFFERSIZE", CURLOPTTYPE_LONG, 280),
+
+	/* Time in ms between connection upkeep calls for long-lived connections. */
+	CURLOPT_UPKEEP_INTERVAL_MS = CURLOPT("CURLOPT_UPKEEP_INTERVAL_MS", CURLOPTTYPE_LONG, 281),
+
+	/* Specify URL using CURL URL API. */
+	CURLOPT_CURLU = CURLOPT("CURLOPT_CURLU", CURLOPTTYPE_OBJECTPOINT, 282),
+
+	/* add trailing data just after no more data is available */
+	CURLOPT_TRAILERFUNCTION = CURLOPT("CURLOPT_TRAILERFUNCTION", CURLOPTTYPE_FUNCTIONPOINT, 283),
+
+	/* pointer to be passed to HTTP_TRAILER_FUNCTION */
+	CURLOPT_TRAILERDATA = CURLOPT("CURLOPT_TRAILERDATA", CURLOPTTYPE_CBPOINT, 284),
+
+	/* set this to 1L to allow HTTP/0.9 responses or 0L to disallow */
+	CURLOPT_HTTP09_ALLOWED = CURLOPT("CURLOPT_HTTP09_ALLOWED", CURLOPTTYPE_LONG, 285),
+
+	/* alt-svc control bitmask */
+	CURLOPT_ALTSVC_CTRL = CURLOPT("CURLOPT_ALTSVC_CTRL", CURLOPTTYPE_LONG, 286),
+
+	/* alt-svc cache file name to possibly read from/write to */
+	CURLOPT_ALTSVC = CURLOPT("CURLOPT_ALTSVC", CURLOPTTYPE_STRINGPOINT, 287),
+
+	/* maximum age of a connection to consider it for reuse (in seconds) */
+	CURLOPT_MAXAGE_CONN = CURLOPT("CURLOPT_MAXAGE_CONN", CURLOPTTYPE_LONG, 288),
+
+	/* SASL authorisation identity */
+	CURLOPT_SASL_AUTHZID = CURLOPT("CURLOPT_SASL_AUTHZID", CURLOPTTYPE_STRINGPOINT, 289),
+
+	/* allow RCPT TO command to fail for some recipients */
+	CURLOPT_MAIL_RCPT_ALLLOWFAILS = CURLOPT("CURLOPT_MAIL_RCPT_ALLLOWFAILS", CURLOPTTYPE_LONG, 290),
+
+	/* the private SSL-certificate as a "blob" */
+	CURLOPT_SSLCERT_BLOB = CURLOPT("CURLOPT_SSLCERT_BLOB", CURLOPTTYPE_BLOB, 291),
+	CURLOPT_SSLKEY_BLOB = CURLOPT("CURLOPT_SSLKEY_BLOB", CURLOPTTYPE_BLOB, 292),
+	CURLOPT_PROXY_SSLCERT_BLOB = CURLOPT("CURLOPT_PROXY_SSLCERT_BLOB", CURLOPTTYPE_BLOB, 293),
+	CURLOPT_PROXY_SSLKEY_BLOB = CURLOPT("CURLOPT_PROXY_SSLKEY_BLOB", CURLOPTTYPE_BLOB, 294),
+	CURLOPT_ISSUERCERT_BLOB = CURLOPT("CURLOPT_ISSUERCERT_BLOB", CURLOPTTYPE_BLOB, 295),
+
+	/* Issuer certificate for proxy */
+	CURLOPT_PROXY_ISSUERCERT = CURLOPT("CURLOPT_PROXY_ISSUERCERT", CURLOPTTYPE_STRINGPOINT, 296),
+	CURLOPT_PROXY_ISSUERCERT_BLOB = CURLOPT("CURLOPT_PROXY_ISSUERCERT_BLOB", CURLOPTTYPE_BLOB, 297),
+
+	/* the EC curves requested by the TLS client (RFC 8422, 5.1);
+	 * OpenSSL support via 'set_groups'/'set_curves':
+	 * https://www.openssl.org/docs/manmaster/man3/SSL_CTX_set1_groups.html
+	 */
+	CURLOPT_SSL_EC_CURVES = CURLOPT("CURLOPT_SSL_EC_CURVES", CURLOPTTYPE_STRINGPOINT, 298),
+
+	CURLOPT_LASTENTRY = 299, /* the last unused */
+$
+
+public type CURLoption( integer x )
+	return find( x, curlopt_values ) != 0
+end type
+
+ifdef not CURL_NO_OLDIES then /* define this to test if your app builds with all
+                                 the obsolete stuff removed! */
+
+public constant
+	CURLOPT_ENCODING             = CURLOPT_ACCEPT_ENCODING,
+
+	/* Provide defines for really old option names */
+	CURLOPT_FILE        = CURLOPT_WRITEDATA, /* name changed in 7.9.7 */
+	CURLOPT_INFILE      = CURLOPT_READDATA, /* name changed in 7.9.7 */
+	CURLOPT_WRITEHEADER = CURLOPT_HEADERDATA,
+
+	/* Since long deprecated options with no code in the lib that does anything
+		with them. */
+	CURLOPT_WRITEINFO   = CURLOPT_OBSOLETE40,
+	CURLOPT_CLOSEPOLICY = CURLOPT_OBSOLETE72,
+
+	/* Backwards compatibility with older names */
+	/* These are scheduled to disappear by 2011 */
+
+	/* This was added in version 7.19.1 */
+	CURLOPT_POST301 = CURLOPT_POSTREDIR,
+
+	/* These are scheduled to disappear by 2009 */
+
+	/* The following were added in 7.17.0 */
 	CURLOPT_SSLKEYPASSWD = CURLOPT_KEYPASSWD,
 	CURLOPT_FTPAPPEND    = CURLOPT_APPEND,
 	CURLOPT_FTPLISTONLY  = CURLOPT_DIRLISTONLY,
 	CURLOPT_FTP_SSL      = CURLOPT_USE_SSL,
+
+	/* The following were added earlier */
+	CURLOPT_SSLCERTPASSWD = CURLOPT_KEYPASSWD,
+	CURLOPT_KRB4LEVEL     = CURLOPT_KRBLEVEL,
 $
 
-public constant CURLOPT_SSLCERTPASSWD = CURLOPT_KEYPASSWD
-public constant CURLOPT_KRB4LEVEL     = CURLOPT_KRBLEVEL
+end ifdef -- not CURL_NO_OLDIES
 
+/* Below here follows defines for the CURLOPT_IPRESOLVE option. If a host
+   name resolves addresses using more than one IP protocol version, this
+   option might be handy to force libcurl to use a specific IP version. */
 public constant
-	CURL_IPRESOLVE_WHATEVER = 0,
-	CURL_IPRESOLVE_V4       = 1,
-	CURL_IPRESOLVE_V6       = 2,
+	CURL_IPRESOLVE_WHATEVER = 0, /* default, resolves addresses to all IP
+                                    versions that your system allows */
+	CURL_IPRESOLVE_V4       = 1, /* resolve to IPv4 addresses */
+	CURL_IPRESOLVE_V6       = 2, /* resolve to IPv6 addresses */
 $
 
+/* three convenient "aliases" that follow the name scheme better */
 public constant CURLOPT_RTSPHEADER = CURLOPT_HTTPHEADER
 
+/* These enums are for use with the CURLOPT_HTTP_VERSION option. */
 public constant
-	CURL_HTTP_VERSION_NONE = 0,
-	CURL_HTTP_VERSION_1_0  = 1,
-	CURL_HTTP_VERSION_1_1  = 2,
-	CURL_HTTP_VERSION_2_0  = 3,
-	CURL_HTTP_VERSION_2TLS = 4,
-	CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE = 5,
-	CURL_HTTP_VERSION_LAST = 6,
+	CURL_HTTP_VERSION_NONE =  0, /* setting this means we don't care, and that we'd
+	                                like the library to choose the best possible
+	                                for us! */
+	CURL_HTTP_VERSION_1_0  =  1, /* please use HTTP 1.0 in the request */
+	CURL_HTTP_VERSION_1_1  =  2, /* please use HTTP 1.1 in the request */
+	CURL_HTTP_VERSION_2_0  =  3, /* please use HTTP 2 in the request */
+	CURL_HTTP_VERSION_2TLS =  4, /* use version 2 for HTTPS, version 1.1 for HTTP */
+	CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE = 5, /* please use HTTP 2 without HTTP/1.1 Upgrade */
+	CURL_HTTP_VERSION_3    = 30, /* Makes use of explicit HTTP/3 without fallback.
+	                                Use CURLOPT_ALTSVC to enable HTTP/3 upgrade */
+	CURL_HTTP_VERSION_LAST = 31, /* *ILLEGAL* http version */
 $
 
+/* Convenience definition simple because the name of the version is HTTP/2 and
+   not 2.0. The 2_0 version of the enum name was set while the version was
+   still planned to be 2.0 and we stick to it for compatibility. */
 public constant CURL_HTTP_VERSION_2 = CURL_HTTP_VERSION_2_0
 
-public constant
-	CURL_RTSPREQ_NONE          =  0,
-	CURL_RTSPREQ_OPTIONS       =  1,
-	CURL_RTSPREQ_DESCRIBE      =  2,
-	CURL_RTSPREQ_ANNOUNCE      =  3,
-	CURL_RTSPREQ_SETUP         =  4,
-	CURL_RTSPREQ_PLAY          =  5,
-	CURL_RTSPREQ_PAUSE         =  6,
-	CURL_RTSPREQ_TEARDOWN      =  7,
-	CURL_RTSPREQ_GET_PARAMETER =  8,
-	CURL_RTSPREQ_SET_PARAMETER =  9,
-	CURL_RTSPREQ_RECORD        = 10,
-	CURL_RTSPREQ_RECEIVE       = 11,
-	CURL_RTSPREQ_LAST          = 12,
+/*
+ * Public API enums for RTSP requests
+ */
+ public constant
+    CURL_RTSPREQ_NONE          =  0, /* first in list */
+    CURL_RTSPREQ_OPTIONS       =  1,
+    CURL_RTSPREQ_DESCRIBE      =  2,
+    CURL_RTSPREQ_ANNOUNCE      =  3,
+    CURL_RTSPREQ_SETUP         =  4,
+    CURL_RTSPREQ_PLAY          =  5,
+    CURL_RTSPREQ_PAUSE         =  6,
+    CURL_RTSPREQ_TEARDOWN      =  7,
+    CURL_RTSPREQ_GET_PARAMETER =  8,
+    CURL_RTSPREQ_SET_PARAMETER =  9,
+    CURL_RTSPREQ_RECORD        = 10,
+    CURL_RTSPREQ_RECEIVE       = 11,
+    CURL_RTSPREQ_LAST          = 12, /* last in list */
 $
 
-public constant
-	CURL_NETRC_IGNORED  = 0,
-	CURL_NETRC_OPTIONAL = 1,
-	CURL_NETRC_REQUIRED = 2,
-	CURL_NETRC_LAST     = 3,
-$
-
-public type CURL_NETRC_OPTION( integer n )
-	return ((n >= CURL_NETRC_IGNORED) and (n <= CURL_NETRC_LAST))
+/* These enums are for use with the CURLOPT_NETRC option. */
+public enum type CURL_NETRC_OPTION
+	CURL_NETRC_IGNORED = 0, /* The .netrc will never be read.
+                             * This is the default. */
+	CURL_NETRC_OPTIONAL,    /* A user:password in the URL will be preferred
+                             * to one in the .netrc. */
+	CURL_NETRC_REQUIRED,    /* A user:password in the URL will be ignored.
+                             * Unless one is set programmatically, the .netrc
+                             * will be queried. */
+	CURL_NETRC_LAST
 end type
 
 public constant
 	CURL_SSLVERSION_DEFAULT = 0,
-	CURL_SSLVERSION_TLSv1   = 1,
+	CURL_SSLVERSION_TLSv1   = 1, /* TLS 1.x */
 	CURL_SSLVERSION_SSLv2   = 2,
 	CURL_SSLVERSION_SSLv3   = 3,
 	CURL_SSLVERSION_TLSv1_0 = 4,
 	CURL_SSLVERSION_TLSv1_1 = 5,
 	CURL_SSLVERSION_TLSv1_2 = 6,
-	CURL_SSLVERSION_LAST    = 7,
+	CURL_SSLVERSION_TLSv1_3 = 7,
+	CURL_SSLVERSION_LAST    = 8, /* never use, keep last */
 $
 
 public constant
-	CURL_TLSAUTH_NONE = 0,
-	CURL_TLSAUTH_SRP  = 1,
-	CURL_TLSAUTH_LAST = 2,
+	CURL_SSLVERSION_MAX_NONE    =      0,
+	CURL_SSLVERSION_MAX_DEFAULT =  65536, -- (CURL_SSLVERSION_TLSv1   << 16),
+	CURL_SSLVERSION_MAX_TLSv1_0 = 262144, -- (CURL_SSLVERSION_TLSv1_0 << 16),
+	CURL_SSLVERSION_MAX_TLSv1_1 = 327680, -- (CURL_SSLVERSION_TLSv1_1 << 16),
+	CURL_SSLVERSION_MAX_TLSv1_2 = 393216, -- (CURL_SSLVERSION_TLSv1_2 << 16),
+	CURL_SSLVERSION_MAX_TLSv1_3 = 458752, -- (CURL_SSLVERSION_TLSv1_3 << 16),
+	/* never use, keep last */
+	CURL_SSLVERSION_MAX_LAST    = 524288, -- (CURL_SSLVERSION_LAST    << 16)
 $
 
-public type CURL_TLSAUTH( integer n )
-	return ((n >= CURL_TLSAUTH_NONE) and (n <= CURL_TLSAUTH_LAST))
-end type
+public constant -- CURL_TLSAUTH 
+	CURL_TLSAUTH_NONE = 0,
+	CURL_TLSAUTH_SRP  = 1,
+	CURL_TLSAUTH_LAST = 2, /* never use, keep last */
+$
+
+/* symbols to use with CURLOPT_POSTREDIR.
+   CURL_REDIR_POST_301, CURL_REDIR_POST_302 and CURL_REDIR_POST_303
+   can be bitwise ORed so that CURL_REDIR_POST_301 | CURL_REDIR_POST_302
+   | CURL_REDIR_POST_303 == CURL_REDIR_POST_ALL */
 
 public constant
 	CURL_REDIR_GET_ALL  = 0,
 	CURL_REDIR_POST_301 = 1,
 	CURL_REDIR_POST_302 = 2,
 	CURL_REDIR_POST_303 = 4,
-	CURL_REDIR_POST_ALL = or_all({CURL_REDIR_POST_301,
-		CURL_REDIR_POST_302, CURL_REDIR_POST_303}),
+	CURL_REDIR_POST_ALL = 7, -- (CURL_REDIR_POST_301|CURL_REDIR_POST_302|CURL_REDIR_POST_303)
 $
 
-public constant
-	CURL_TIMECOND_NONE         = 0,
-	CURL_TIMECOND_IFMODSINCE   = 1,
-	CURL_TIMECOND_IFUNMODSINCE = 2,
-	CURL_TIMECOND_LASTMOD      = 3,
-	CURL_TIMECOND_LAST         = 4,
-$
-
-public type curl_TimeCond( integer n )
-	return ((n >= CURL_TIMECOND_NONE) and (n <= CURL_TIMECOND_LAST))
+public enum type curl_TimeCond
+	CURL_TIMECOND_NONE = 0,
+	CURL_TIMECOND_IFMODSINCE,
+	CURL_TIMECOND_IFUNMODSINCE,
+	CURL_TIMECOND_LASTMOD,
+	CURL_TIMECOND_LAST
 end type
 
-public constant
-	CURLFORM_NOTHING        =  0,
-	CURLFORM_COPYNAME       =  1,
-	CURLFORM_PTRNAME        =  2,
-	CURLFORM_NAMELENGTH     =  3,
-	CURLFORM_COPYCONTENTS   =  4,
-	CURLFORM_PTRCONTENTS    =  5,
-	CURLFORM_CONTENTSLENGTH =  6,
-	CURLFORM_FILECONTENT    =  7,
-	CURLFORM_ARRAY          =  8,
-	CURLFORM_OBSOLETE       =  9,
-	CURLFORM_FILE           = 10,
-	CURLFORM_BUFFER         = 11,
-	CURLFORM_BUFFERPTR      = 12,
-	CURLFORM_BUFFERLENGTH   = 13,
-	CURLFORM_CONTENTTYPE    = 14,
-	CURLFORM_CONTENTHEADER  = 15,
-	CURLFORM_FILENAME       = 16,
-	CURLFORM_END            = 17,
-	CURLFORM_OBSOLETE2      = 18,
-	CURLFORM_STREAM         = 19,
-	CURLFORM_CONTENTLEN     = 20,
-	CURLFORM_LASTENTRY      = 21,
-$
+/* Special size_t value signaling a null-terminated string. */
+public constant CURL_ZERO_TERMINATED = (-1)
 
-public type CURLformoption( integer n )
-	return ((n >= CURLFORM_NOTHING) and (n <= CURLFORM_LASTENTRY))
+/* curl_strequal() and curl_strnequal() are subject for removal in a future
+   release */
+
+public function curl_strequal( sequence s1, sequence s2 )
+
+	atom s1_addr = allocate_string( s1, TRUE )
+	atom s2_addr = allocate_string( s2, TRUE )
+
+	return c_func( _curl_strequal, {s1_addr,s2_addr} )
+end function
+
+public function curl_strnequal( sequence s1, sequence s2, atom n )
+
+	atom s1_addr = allocate_string( s1, TRUE )
+	atom s2_addr = allocate_string( s2, TRUE )
+
+	return c_func( _curl_strnequal, {s1_addr,s2_addr,n} )
+end function
+
+/*
+ * NAME curl_mime_init()
+ *
+ * DESCRIPTION
+ *
+ * Create a mime context and return its handle. The easy parameter is the
+ * target handle.
+ */
+public function curl_mime_init( atom curl )
+	return c_func( _curl_mime_init, {curl} )
+end function
+
+/*
+ * NAME curl_mime_free()
+ *
+ * DESCRIPTION
+ *
+ * release a mime handle and its substructures.
+ */
+public procedure curl_mime_free( atom mime )
+	c_proc( _curl_mime_free, {mime} )
+end procedure
+
+/*
+ * NAME curl_mime_addpart()
+ *
+ * DESCRIPTION
+ *
+ * Append a new empty part to the given mime context and return a handle to
+ * the created part.
+ */
+public function curl_mime_addpart( atom mime )
+	return c_func( _curl_mime_addpart, {mime} )
+end function
+
+/*
+ * NAME curl_mime_name()
+ *
+ * DESCRIPTION
+ *
+ * Set mime/form part name.
+ */
+public function curl_mime_name( atom mime, object name )
+
+	if sequence( name ) then
+		name = allocate_string( name, TRUE )
+	end if
+
+	return c_func( _curl_mime_name, {mime,name} )
+end function
+
+/*
+ * NAME curl_mime_filename()
+ *
+ * DESCRIPTION
+ *
+ * Set mime part remote file name.
+ */
+public function curl_mime_filename( atom mime, object filename )
+
+	if sequence( filename ) then
+		filename = allocate_string( filename, TRUE )
+	end if
+
+	return c_func( _curl_mime_filename, {mime,filename} )
+end function
+
+/*
+ * NAME curl_mime_type()
+ *
+ * DESCRIPTION
+ *
+ * Set mime part type.
+ */
+public function curl_mime_type( atom mime, object mimetype )
+
+	if sequence( mimetype ) then
+		mimetype = allocate_string( mimetype, TRUE )
+	end if
+
+	return c_func( _curl_mime_type, {mime,mimetype} )
+end function
+
+/*
+ * NAME curl_mime_encoder()
+ *
+ * DESCRIPTION
+ *
+ * Set mime data transfer encoder.
+ */
+public function curl_mime_encoder( atom mime, object encoding )
+
+	if sequence( encoding ) then
+		encoding = allocate_string( encoding, TRUE )
+	end if
+
+	return c_func( _curl_mime_encoder, {mime,encoding} )
+end function
+
+/*
+ * NAME curl_mime_data()
+ *
+ * DESCRIPTION
+ *
+ * Set mime part data source from memory data,
+ */
+public function curl_mime_data( atom mime, object data, atom datasize = length(data) )
+
+	if sequence( data ) then
+		datasize = length( data )
+		atom ptr = allocate_data( datasize, TRUE )
+		poke( ptr, data )
+		data = ptr
+	end if
+
+	return c_func( _curl_mime_data, {mime,data,datasize} )
+end function
+
+/*
+ * NAME curl_mime_data_cb()
+ *
+ * DESCRIPTION
+ *
+ * Set mime part data source from callback function.
+ */
+public function curl_mime_data_cb( atom mime, atom datasize, atom readfunc, atom seekfunc, atom freefunc, atom arg = NULL )
+	return c_func( _curl_mime_data_cb, {mime,datasize,readfunc,seekfunc,freefunc,arg} )
+end function
+
+/*
+ * NAME curl_mime_subparts()
+ *
+ * DESCRIPTION
+ *
+ * Set mime part data source from subparts.
+ */
+public function curl_mime_subparts( atom part, atom subparts )
+	return c_func( _curl_mime_subparts, {part,subparts} )
+end function
+
+/*
+ * NAME curl_mime_headers()
+ *
+ * DESCRIPTION
+ *
+ * Set mime part headers.
+ */
+public function curl_mime_headers( atom part, atom headers, integer take_ownership )
+	return c_func( _curl_mime_headers, {part,headers,take_ownership} )
+end function
+
+public enum type CURLformoption
+	CURLFORM_NOTHING = 0,    /********* the first one is unused ************/
+	CURLFORM_COPYNAME,
+	CURLFORM_PTRNAME,
+	CURLFORM_NAMELENGTH,
+	CURLFORM_COPYCONTENTS,
+	CURLFORM_PTRCONTENTS,
+	CURLFORM_CONTENTSLENGTH,
+	CURLFORM_FILECONTENT,
+	CURLFORM_ARRAY,
+	CURLFORM_OBSOLETE,
+	CURLFORM_FILE,
+
+	CURLFORM_BUFFER,
+	CURLFORM_BUFFERPTR,
+	CURLFORM_BUFFERLENGTH,
+	CURLFORM_CONTENTTYPE,
+	CURLFORM_CONTENTHEADER,
+	CURLFORM_FILENAME,
+	CURLFORM_END,
+	CURLFORM_OBSOLETE2,
+
+	CURLFORM_STREAM,
+	CURLFORM_CONTENTLEN, /* added in 7.46.0, provide a curl_off_t length */
+
+	CURLFORM_LASTENTRY /* the last unused */
 end type
 
-public constant
-	CURL_FORMADD_OK             = 0,
-	CURL_FORMADD_MEMORY         = 1,
-	CURL_FORMADD_OPTION_TWICE   = 2,
-	CURL_FORMADD_NULL           = 3,
-	CURL_FORMADD_UNKNOWN_OPTION = 4,
-	CURL_FORMADD_INCOMPLETE     = 5,
-	CURL_FORMADD_ILLEGAL_ARRAY  = 6,
-	CURL_FORMADD_DISABLED       = 7,
-	CURL_FORMADD_LAST           = 8,
-$
-
-public type CURLFORMcode( integer n )
-	return ((n >= CURL_FORMADD_OK) and (n <= CURL_FORMADD_LAST))
+/* use this for multipart formpost building */
+/* Returns code for curl_formadd()
+ *
+ * Returns:
+ * CURL_FORMADD_OK             on success
+ * CURL_FORMADD_MEMORY         if the FormInfo allocation fails
+ * CURL_FORMADD_OPTION_TWICE   if one option is given twice for one Form
+ * CURL_FORMADD_NULL           if a null pointer was given for a char
+ * CURL_FORMADD_MEMORY         if the allocation of a FormInfo struct failed
+ * CURL_FORMADD_UNKNOWN_OPTION if an unknown option was used
+ * CURL_FORMADD_INCOMPLETE     if the some FormInfo is not complete (or error)
+ * CURL_FORMADD_MEMORY         if a curl_httppost struct cannot be allocated
+ * CURL_FORMADD_MEMORY         if some allocation for string copying failed.
+ * CURL_FORMADD_ILLEGAL_ARRAY  if an illegal option is used in an array
+ *
+ ***************************************************************************/
+public enum type CURLFORMcode
+	CURL_FORMADD_OK = 0, /* first, no error */
+	CURL_FORMADD_MEMORY,
+	CURL_FORMADD_OPTION_TWICE,
+	CURL_FORMADD_NULL,
+	CURL_FORMADD_UNKNOWN_OPTION,
+	CURL_FORMADD_INCOMPLETE,
+	CURL_FORMADD_ILLEGAL_ARRAY,
+	CURL_FORMADD_DISABLED, /* libcurl was built with this disabled */
+	CURL_FORMADD_LAST /* last */
 end type
 
-public constant
-	CURLSSLBACKEND_NONE      =  0,
-	CURLSSLBACKEND_OPENSSL   =  1,
-	CURLSSLBACKEND_GNUTLS    =  2,
-	CURLSSLBACKEND_NSS       =  3,
-	CURLSSLBACKEND_OBSOLETE4 =  4,
-	CURLSSLBACKEND_GSKIT     =  5,
-	CURLSSLBACKEND_POLARSSL  =  6,
-	CURLSSLBACKEND_CYASSL    =  7,
-	CURLSSLBACKEND_SCHANNEL  =  8,
-	CURLSSLBACKEND_DARWINSSL =  9,
-	CURLSSLBACKEND_AXTLS     = 10,
-	CURLSSLBACKEND_MBEDTLS   = 11,
-$
+/*
+ * NAME curl_formadd()
+ *
+ * DESCRIPTION
+ *
+ * Pretty advanced function for building multi-part formposts. Each invoke
+ * adds one part that together construct a full post. Then use
+ * CURLOPT_HTTPPOST to send it off to libcurl.
+ */
+public function curl_formadd( atom httppost, atom last_post, atom param )
+	return c_func( _curl_formadd, {httppost,last_post,param} )
+end function
 
-public type curl_sslbackend( integer n )
-	return ((n >= CURLSSLBACKEND_NONE) and (n <= CURLSSLBACKEND_MBEDTLS))
+/*
+ * NAME curl_formget()
+ *
+ * DESCRIPTION
+ *
+ * Serialize a curl_httppost struct built with curl_formadd().
+ * Accepts a void pointer as second argument which will be passed to
+ * the curl_formget_callback function.
+ * Returns 0 on success.
+ */
+public function curl_formget( atom form, atom arg, atom appendfunc )
+	return c_func( _curl_formget, {form,arg,appendfunc} )
+end function
+
+/*
+ * NAME curl_formfree()
+ *
+ * DESCRIPTION
+ *
+ * Free a multipart formpost previously built with curl_formadd().
+ */
+public procedure curl_formfree( atom form )
+	c_proc( _curl_formfree, {form} )
+end procedure
+
+/*
+ * NAME curl_getenv()
+ *
+ * DESCRIPTION
+ *
+ * Returns a malloc()'ed string that MUST be curl_free()ed after usage is
+ * complete. DEPRECATED - see lib/README.curlx
+ */
+public function curl_getenv( sequence variable )
+
+	atom addr = allocate_string( variable, TRUE )
+
+	atom result = c_func( _curl_getenv, {addr} )
+	sequence string = ""
+
+	if result != NULL then
+		string = peek_string( result )
+		c_proc( _curl_free, {result} )
+	end if
+
+	return string
+end function
+
+/*
+ * NAME curl_version()
+ *
+ * DESCRIPTION
+ *
+ * Returns a static ascii string of the libcurl version.
+ */
+public function curl_version()
+
+	atom result = c_func( _curl_version, {} )
+	sequence string = ""
+
+	if result != NULL then
+		string = peek_string( result )
+	end if
+
+	return string
+end function
+
+/*
+ * NAME curl_easy_escape()
+ *
+ * DESCRIPTION
+ *
+ * Escapes URL strings (converts all letters consider illegal in URLs to their
+ * %XX versions). This function returns a new allocated string or NULL if an
+ * error occurred.
+ */
+public function curl_easy_escape( atom handle, sequence str, integer len = length(str) )
+
+	atom addr = allocate_string( str, TRUE )
+
+	atom result = c_func( _curl_easy_escape, {handle,addr,len} )
+	sequence string = ""
+
+	if result != NULL then
+		string = peek_string( result )
+		c_proc( _curl_free, {result} )
+	end if
+
+	return string
+end function
+
+/* the previous version: */
+deprecate
+public function curl_escape( sequence str, integer len = length(str) )
+
+	atom addr = allocate_string( str, TRUE )
+
+	atom result = c_func( _curl_escape, {addr,len} )
+	sequence string = ""
+
+	if result != NULL then
+		string = peek_string( result )
+		c_proc( _curl_free, {result} )
+	end if
+
+	return string
+end function
+
+/*
+ * NAME curl_easy_unescape()
+ *
+ * DESCRIPTION
+ *
+ * Unescapes URL encoding in strings (converts all %XX codes to their 8bit
+ * versions). This function returns a new allocated string or NULL if an error
+ * occurred.
+ * Conversion Note: On non-ASCII platforms the ASCII %XX codes are
+ * converted into the host encoding.
+ */
+public function curl_easy_unescape( atom handle, sequence str, integer len = length(str) )
+
+	atom addr = allocate_string( str, TRUE )
+	atom outlength = allocate_data( sizeof(C_INT), TRUE )
+	mem_set( outlength, NULL, sizeof(C_INT) )
+
+	atom result = c_func( _curl_easy_unescape, {handle,addr,len,outlength} )
+	sequence string = ""
+
+	if result != NULL then
+		len = peek4s( outlength )
+		string = peek({ result, len })
+		c_proc( _curl_free, {result} )
+	end if
+
+	return string
+end function
+
+/* the previous version */
+deprecate
+public function curl_unescape( sequence str, integer len = length(str) )
+
+	atom addr = allocate_string( str, TRUE )
+
+	atom result = c_func( _curl_unescape, {addr,len} )
+	sequence string = ""
+
+	if result != NULL then
+		string = peek_string( result )
+		c_proc( _curl_free, {result} )
+	end if
+
+	return string
+end function
+
+/*
+ * NAME curl_free()
+ *
+ * DESCRIPTION
+ *
+ * Provided for de-allocation in the same translation unit that did the
+ * allocation. Added in libcurl 7.10
+ */
+public procedure curl_free( atom p )
+	c_proc( _curl_free, {p} )
+end procedure
+
+/*
+ * NAME curl_global_init()
+ *
+ * DESCRIPTION
+ *
+ * curl_global_init() should be invoked exactly once for each application that
+ * uses libcurl and before any call of other libcurl functions.
+ *
+ * This function is not thread-safe!
+ */
+public function curl_global_init( atom flags = CURL_GLOBAL_DEFAULT )
+	return c_func( _curl_global_init, {flags} )
+end function
+
+/*
+ * NAME curl_global_init_mem()
+ *
+ * DESCRIPTION
+ *
+ * curl_global_init() or curl_global_init_mem() should be invoked exactly once
+ * for each application that uses libcurl.  This function can be used to
+ * initialize libcurl and set user defined memory management callback
+ * functions.  Users can implement memory management routines to check for
+ * memory leaks, check for mis-use of the curl library etc.  User registered
+ * callback routines will be invoked by this library instead of the system
+ * memory management routines like malloc, free etc.
+ */
+public function curl_global_init_mem( atom flags, atom mallocfunc, atom freefunc, atom reallocfunc, atom strdupfunc, atom callocfunc )
+	return c_func( _curl_global_init_mem, {flags,mallocfunc,freefunc,reallocfunc,strdupfunc,callocfunc} )
+end function
+
+/*
+ * NAME curl_global_cleanup()
+ *
+ * DESCRIPTION
+ *
+ * curl_global_cleanup() should be invoked exactly once for each application
+ * that uses libcurl
+ */
+public procedure curl_global_cleanup()
+	c_proc( _curl_global_cleanup, {} )
+end procedure
+
+/*
+ * NAME curl_global_sslset()
+ *
+ * DESCRIPTION
+ *
+ * When built with multiple SSL backends, curl_global_sslset() allows to
+ * choose one. This function can only be called once, and it must be called
+ * *before* curl_global_init().
+ *
+ * The backend can be identified by the id (e.g. CURLSSLBACKEND_OPENSSL). The
+ * backend can also be specified via the name parameter (passing -1 as id).
+ * If both id and name are specified, the name will be ignored. If neither id
+ * nor name are specified, the function will fail with
+ * CURLSSLSET_UNKNOWN_BACKEND and set the "avail" pointer to the
+ * NULL-terminated list of available backends.
+ *
+ * Upon success, the function returns CURLSSLSET_OK.
+ *
+ * If the specified SSL backend is not available, the function returns
+ * CURLSSLSET_UNKNOWN_BACKEND and sets the "avail" pointer to a NULL-terminated
+ * list of available SSL backends.
+ *
+ * The SSL backend can be set only once. If it has already been set, a
+ * subsequent attempt to change it will result in a CURLSSLSET_TOO_LATE.
+ */
+
+public function curl_global_sslset( atom id, object name = NULL, atom avail = NULL )
+	
+	if sequence( name ) then
+		name = allocate_string( name, TRUE )
+	end if
+
+	return c_func( _curl_global_sslset, {id,name,avail})
+end function
+
+public enum type CURLsslset
+	CURLSSLSET_OK = 0,
+	CURLSSLSET_UNKNOWN_BACKEND,
+	CURLSSLSET_TOO_LATE,
+	CURLSSLSET_NO_BACKENDS /* libcurl was built without any SSL support */
 end type
 
-public constant
-	CURLSSLBACKEND_LIBRESSL  = 1,
-	CURLSSLBACKEND_BORINGSSL = 1,
-	CURLSSLBACKEND_WOLFSSL   = 6,
+/* linked-list structure for the CURLOPT_QUOTE option (and other) */
+
+ifdef BITS64 then
+
+constant
+	curl_slist__data  =  0, -- char*
+	curl_slist__next  =  8, -- struct curl_slist*
+	SIZEOF_CURL_SLIST = 16,
 $
+
+elsedef -- BITS32
+
+constant
+	curl_slist__data  = 0, -- char*
+	curl_slist__next  = 4, -- struct curl_slist*
+	SIZEOF_CURL_SLIST = 8,
+$
+
+end ifdef
+
+/*
+ * NAME curl_slist_append()
+ *
+ * DESCRIPTION
+ *
+ * Appends a string to a linked list. If no list exists, it will be created
+ * first. Returns the new list, after appending.
+ */
+public function curl_slist_append( atom slist, sequence string )
+
+	atom addr = allocate_string( string, TRUE )
+  
+	return c_func( _curl_slist_append, {slist,addr} )
+end function
+
+/*
+ * NAME curl_slist_free_all()
+ *
+ * DESCRIPTION
+ *
+ * free a previously built curl_slist.
+ */
+public procedure curl_slist_free_all( atom slist )
+	c_proc( _curl_slist_free_all, {slist} )
+end procedure
+
+/*
+ * NAME curl_slist_values()
+ *
+ * DESCRIPTION
+ *
+ * Returns a sequence of all values in the list.
+ */
+public function curl_slist_values( atom slist )
+
+	sequence values = {}
+
+	while slist != NULL do
+
+		object data = peek_pointer( slist + curl_slist__data )
+		sequence str = ""
+
+		if data != NULL then
+			str = peek_string( data )
+		end if
+
+		values = append( values, str )
+
+		slist = peek_pointer( slist + curl_slist__next )
+	end while
+
+	return values
+end function
+
+/*
+ * NAME curl_getdate()
+ *
+ * DESCRIPTION
+ *
+ * Returns the time, in seconds since 1 Jan 1970 of the time string given in
+ * the first argument. The time argument in the second parameter is unused
+ * and should be set to NULL.
+ */
+public function curl_getdate( sequence datestring, atom now = NULL )
+	
+	atom addr = allocate_string( datestring, TRUE )
+
+	return c_func( _curl_getdate, {addr,now} )
+end function
 
 public constant
 	CURLINFO_STRING   = #100000,
@@ -957,1137 +2552,632 @@ public constant
 	CURLINFO_DOUBLE   = #300000,
 	CURLINFO_SLIST    = #400000,
 	CURLINFO_SOCKET   = #500000,
+	CURLINFO_OFF_T    = #600000,
 	CURLINFO_MASK     = #0FFFFF,
 	CURLINFO_TYPEMASK = #F00000,
 $
 
-public constant
-	CURLINFO_NONE                      =                    0,
-	CURLINFO_EFFECTIVE_URL             = CURLINFO_STRING +  1,
-	CURLINFO_RESPONSE_CODE             = CURLINFO_LONG   +  2,
-	CURLINFO_TOTAL_TIME                = CURLINFO_DOUBLE +  3,
-	CURLINFO_NAMELOOKUP_TIME           = CURLINFO_DOUBLE +  4,
-	CURLINFO_CONNECT_TIME              = CURLINFO_DOUBLE +  5,
-	CURLINFO_PRETRANSFER_TIME          = CURLINFO_DOUBLE +  6,
-	CURLINFO_SIZE_UPLOAD               = CURLINFO_DOUBLE +  7,
-	CURLINFO_SIZE_DOWNLOAD             = CURLINFO_DOUBLE +  8,
-	CURLINFO_SPEED_DOWNLOAD            = CURLINFO_DOUBLE +  9,
-	CURLINFO_SPEED_UPLOAD              = CURLINFO_DOUBLE + 10,
-	CURLINFO_HEADER_SIZE               = CURLINFO_LONG   + 11,
-	CURLINFO_REQUEST_SIZE              = CURLINFO_LONG   + 12,
-	CURLINFO_SSL_VERIFYRESULT          = CURLINFO_LONG   + 13,
-	CURLINFO_FILETIME                  = CURLINFO_LONG   + 14,
-	CURLINFO_CONTENT_LENGTH_DOWNLOAD   = CURLINFO_DOUBLE + 15,
-	CURLINFO_CONTENT_LENGTH_UPLOAD     = CURLINFO_DOUBLE + 16,
-	CURLINFO_STARTTRANSFER_TIME        = CURLINFO_DOUBLE + 17,
-	CURLINFO_CONTENT_TYPE              = CURLINFO_STRING + 18,
-	CURLINFO_REDIRECT_TIME             = CURLINFO_DOUBLE + 19,
-	CURLINFO_REDIRECT_COUNT            = CURLINFO_LONG   + 20,
-	CURLINFO_PRIVATE                   = CURLINFO_STRING + 21,
-	CURLINFO_HTTP_CONNECTCODE          = CURLINFO_LONG   + 22,
-	CURLINFO_HTTPAUTH_AVAIL            = CURLINFO_LONG   + 23,
-	CURLINFO_PROXYAUTH_AVAIL           = CURLINFO_LONG   + 24,
-	CURLINFO_OS_ERRNO                  = CURLINFO_LONG   + 25,
-	CURLINFO_NUM_CONNECTS              = CURLINFO_LONG   + 26,
-	CURLINFO_SSL_ENGINES               = CURLINFO_SLIST  + 27,
-	CURLINFO_COOKIELIST                = CURLINFO_SLIST  + 28,
-	CURLINFO_LASTSOCKET                = CURLINFO_LONG   + 29,
-	CURLINFO_FTP_ENTRY_PATH            = CURLINFO_STRING + 30,
-	CURLINFO_REDIRECT_URL              = CURLINFO_STRING + 31,
-	CURLINFO_PRIMARY_IP                = CURLINFO_STRING + 32,
-	CURLINFO_APPCONNECT_TIME           = CURLINFO_DOUBLE + 33,
-	CURLINFO_CERTINFO                  = CURLINFO_SLIST  + 34,
-	CURLINFO_CONDITION_UNMET           = CURLINFO_LONG   + 35,
-	CURLINFO_RTSP_SESSION_ID           = CURLINFO_STRING + 36,
-	CURLINFO_RTSP_CLIENT_CSEQ          = CURLINFO_LONG   + 37,
-	CURLINFO_RTSP_SERVER_CSEQ          = CURLINFO_LONG   + 38,
-	CURLINFO_RTSP_CSEQ_RECV            = CURLINFO_LONG   + 39,
-	CURLINFO_PRIMARY_PORT              = CURLINFO_LONG   + 40,
-	CURLINFO_LOCAL_IP                  = CURLINFO_STRING + 41,
-	CURLINFO_LOCAL_PORT                = CURLINFO_LONG   + 42,
-	CURLINFO_TLS_SESSION               = CURLINFO_SLIST  + 43,
-	CURLINFO_ACTIVESOCKET              = CURLINFO_SOCKET + 44,
-	CURLINFO_TLS_SSL_PTR               = CURLINFO_SLIST  + 45,
-	CURLINFO_HTTP_VERSION              = CURLINFO_LONG   + 46,
-	CURLINFO_LASTONE                   =                   46,
-$
-
-public type CURLINFO( integer n )
-	integer rem = and_bits(n, #0000FF)
-	return ((rem >= #0) and (rem <= #2F))
+/*
+public type curlinfo_string( integer x )
+	return and_bits( x, CURLINFO_TYPEMASK ) = CURLINFO_STRING
 end type
 
+public type curlinfo_long( integer x )
+	return and_bits( x, CURLINFO_TYPEMASK ) = CURLINFO_LONG
+end type
+
+public type curlinfo_double( integer x )
+	return and_bits( x, CURLINFO_TYPEMASK ) = CURLINFO_DOUBLE
+end type
+
+public type curlinfo_slist( integer x )
+	return and_bits( x, CURLINFO_TYPEMASK ) = CURLINFO_SLIST
+end type
+
+public type curlinfo_socket( integer x )
+	return and_bits( x, CURLINFO_TYPEMASK ) = CURLINFO_SOCKET
+end type
+*/
+
+public enum type CURLINFO
+	CURLINFO_NONE                    =       0,
+	CURLINFO_EFFECTIVE_URL           = #100001, -- CURLINFO_STRING +  1,
+	CURLINFO_RESPONSE_CODE           = #200002, -- CURLINFO_LONG   +  2,
+	CURLINFO_TOTAL_TIME              = #300003, -- CURLINFO_DOUBLE +  3,
+	CURLINFO_NAMELOOKUP_TIME         = #300004, -- CURLINFO_DOUBLE +  4,
+	CURLINFO_CONNECT_TIME            = #300005, -- CURLINFO_DOUBLE +  5,
+	CURLINFO_PRETRANSFER_TIME        = #300006, -- CURLINFO_DOUBLE +  6,
+	CURLINFO_SIZE_UPLOAD             = #300007, -- CURLINFO_DOUBLE +  7,
+	CURLINFO_SIZE_DOWNLOAD           = #300008, -- CURLINFO_DOUBLE +  8,
+	CURLINFO_SPEED_DOWNLOAD          = #300009, -- CURLINFO_DOUBLE +  9,
+	CURLINFO_SPEED_UPLOAD            = #30000A, -- CURLINFO_DOUBLE + 10,
+	CURLINFO_HEADER_SIZE             = #20000B, -- CURLINFO_LONG   + 11,
+	CURLINFO_REQUEST_SIZE            = #20000C, -- CURLINFO_LONG   + 12,
+	CURLINFO_SSL_VERIFYRESULT        = #20000D, -- CURLINFO_LONG   + 13,
+	CURLINFO_FILETIME                = #20000E, -- CURLINFO_LONG   + 14,
+	CURLINFO_CONTENT_LENGTH_DOWNLOAD = #30000F, -- CURLINFO_DOUBLE + 15,
+	CURLINFO_CONTENT_LENGTH_UPLOAD   = #300010, -- CURLINFO_DOUBLE + 16,
+	CURLINFO_STARTTRANSFER_TIME      = #300011, -- CURLINFO_DOUBLE + 17,
+	CURLINFO_CONTENT_TYPE            = #100012, -- CURLINFO_STRING + 18,
+	CURLINFO_REDIRECT_TIME           = #300013, -- CURLINFO_DOUBLE + 19,
+	CURLINFO_REDIRECT_COUNT          = #200014, -- CURLINFO_LONG   + 20,
+	CURLINFO_PRIVATE                 = #100015, -- CURLINFO_STRING + 21,
+	CURLINFO_HTTP_CONNECTCODE        = #200016, -- CURLINFO_LONG   + 22,
+	CURLINFO_HTTPAUTH_AVAIL          = #200017, -- CURLINFO_LONG   + 23,
+	CURLINFO_PROXYAUTH_AVAIL         = #200018, -- CURLINFO_LONG   + 24,
+	CURLINFO_OS_ERRNO                = #200019, -- CURLINFO_LONG   + 25,
+	CURLINFO_NUM_CONNECTS            = #20001A, -- CURLINFO_LONG   + 26,
+	CURLINFO_SSL_ENGINES             = #40001B, -- CURLINFO_SLIST  + 27,
+	CURLINFO_COOKIELIST              = #40001C, -- CURLINFO_SLIST  + 28,
+	CURLINFO_LASTSOCKET              = #20001D, -- CURLINFO_LONG   + 29,
+	CURLINFO_FTP_ENTRY_PATH          = #10001E, -- CURLINFO_STRING + 30,
+	CURLINFO_REDIRECT_URL            = #10001F, -- CURLINFO_STRING + 31,
+	CURLINFO_PRIMARY_IP              = #100020, -- CURLINFO_STRING + 32,
+	CURLINFO_APPCONNECT_TIME         = #300021, -- CURLINFO_DOUBLE + 33,
+	CURLINFO_CERTINFO                = #400022, -- CURLINFO_SLIST  + 34,
+	CURLINFO_CONDITION_UNMET         = #200023, -- CURLINFO_LONG   + 35,
+	CURLINFO_RTSP_SESSION_ID         = #100024, -- CURLINFO_STRING + 36,
+	CURLINFO_RTSP_CLIENT_CSEQ        = #200025, -- CURLINFO_LONG   + 37,
+	CURLINFO_RTSP_SERVER_CSEQ        = #200026, -- CURLINFO_LONG   + 38,
+	CURLINFO_RTSP_CSEQ_RECV          = #200027, -- CURLINFO_LONG   + 39,
+	CURLINFO_PRIMARY_PORT            = #200028, -- CURLINFO_LONG   + 40,
+	CURLINFO_LOCAL_IP                = #100029, -- CURLINFO_STRING + 41,
+	CURLINFO_LOCAL_PORT              = #20002A, -- CURLINFO_LONG   + 42,
+	CURLINFO_TLS_SESSION             = #40002B, -- CURLINFO_SLIST  + 43,
+	CURLINFO_ACTIVESOCKET            = #50002C, -- CURLINFO_SOCKET + 44,
+	CURLINFO_TLS_SSL_PTR             = #40002D, -- CURLINFO_SLIST  + 45,
+	CURLINFO_HTTP_VERSION            = #20002E, -- CURLINFO_LONG   + 46,
+	CURLINFO_PROXY_SSL_VERIFYRESULT  = #20002F, -- CURLINFO_LONG + 47,
+	CURLINFO_PROTOCOL                = #200030, -- CURLINFO_LONG   + 48,
+	CURLINFO_SCHEME                  = #100031, -- CURLINFO_STRING + 49,
+	CURLINFO_TOTAL_TIME_T            = #600032, -- CURLINFO_OFF_T + 50,
+	CURLINFO_NAMELOOKUP_TIME_T       = #600033, -- CURLINFO_OFF_T + 51,
+	CURLINFO_CONNECT_TIME_T          = #600034, -- CURLINFO_OFF_T + 52,
+	CURLINFO_PRETRANSFER_TIME_T      = #600035, -- CURLINFO_OFF_T + 53,
+	CURLINFO_STARTTRANSFER_TIME_T    = #600036, -- CURLINFO_OFF_T + 54,
+	CURLINFO_REDIRECT_TIME_T         = #600037, -- CURLINFO_OFF_T + 55,
+	CURLINFO_APPCONNECT_TIME_T       = #600038, -- CURLINFO_OFF_T + 56,
+	CURLINFO_RETRY_AFTER             = #600039, -- CURLINFO_OFF_T + 57,
+	CURLINFO_EFFECTIVE_METHOD        = #10003A, -- CURLINFO_STRING + 58,
+	CURLINFO_PROXY_ERROR             = #20003B, -- CURLINFO_LONG + 59,
+	CURLINFO_LASTONE                 =      59
+end type
+
+/* CURLINFO_RESPONSE_CODE is the new name for the option previously known as
+   CURLINFO_HTTP_CODE */
 public constant CURLINFO_HTTP_CODE = CURLINFO_RESPONSE_CODE
 
-public constant
-	CURLCLOSEPOLICY_NONE                = 0,
-	CURLCLOSEPOLICY_OLDEST              = 1,
-	CURLCLOSEPOLICY_LEAST_RECENTLY_USED = 2,
-	CURLCLOSEPOLICY_LEAST_TRAFFIC       = 3,
-	CURLCLOSEPOLICY_SLOWEST             = 4,
-	CURLCLOSEPOLICY_CALLBACK            = 5,
-	CURLCLOSEPOLICY_LAST                = 6,
-$
-
-public type curl_closepolicy( integer n )
-	return ((n >= CURLCLOSEPOLICY_NONE) and (n <= CURLCLOSEPOLICY_LAST))
+public enum type curl_closepolicy
+	CURL_CLOSEPOLICY_NONE = 0, /* first, never use this */
+	CURL_CLOSEPOLICY_OLDEST,
+	CURL_CLOSEPOLICY_LEAST_RECENTLY_USED,
+	CURL_CLOSEPOLICY_LEAST_TRAFFIC,
+	CURL_CLOSEPOLICY_SLOWEST,
+	CURL_CLOSEPOLICY_CALLBACK,
+	CURL_CLOSEPOLICY_LAST /* last, never use this */
 end type
 
 public constant
-	CURL_GLOBAL_SSL       = 1,
-	CURL_GLOBAL_WIN32     = 2,
-	CURL_GLOBAL_ALL       = or_bits(CURL_GLOBAL_SSL, CURL_GLOBAL_WIN32),
+	CURL_GLOBAL_SSL       = 1, -- (1<<0) /* no purpose since since 7.57.0 */
+	CURL_GLOBAL_WIN32     = 2, -- (1<<1)
+	CURL_GLOBAL_ALL       = 3, -- (CURL_GLOBAL_SSL|CURL_GLOBAL_WIN32)
 	CURL_GLOBAL_NOTHING   = 0,
 	CURL_GLOBAL_DEFAULT   = CURL_GLOBAL_ALL,
-	CURL_GLOBAL_ACK_EINTR = 4,
+	CURL_GLOBAL_ACK_EINTR = 4, -- (1<<2),
 $
+/*****************************************************************************
+ * Setup defines, protos etc for the sharing stuff.
+ */
 
-public constant
-	CURL_LOCK_DATA_NONE        = 0,
-	CURL_LOCK_DATA_SHARE       = 1,
-	CURL_LOCK_DATA_COOKIE      = 2,
-	CURL_LOCK_DATA_DNS         = 3,
-	CURL_LOCK_DATA_SSL_SESSION = 4,
-	CURL_LOCK_DATA_CONNECT     = 5,
-	CURL_LOCK_DATA_LAST        = 6,
-$
-
-public type curl_lock_data( integer n )
-	return ((n >= CURL_LOCK_DATA_NONE) and (n <= CURL_LOCK_DATA_LAST))
+public enum type curl_lock_data
+	CURL_LOCK_DATA_NONE = 0,
+	/*  CURL_LOCK_DATA_SHARE is used internally to say that
+     *  the locking is just made to change the internal state of the share
+     *  itself.
+     */
+	CURL_LOCK_DATA_SHARE,
+	CURL_LOCK_DATA_COOKIE,
+	CURL_LOCK_DATA_DNS,
+	CURL_LOCK_DATA_SSL_SESSION,
+	CURL_LOCK_DATA_CONNECT,
+	CURL_LOCK_DATA_LAST
 end type
 
-public constant
-	CURL_LOCK_ACCESS_NONE   = 0,
-	CURL_LOCK_ACCESS_SHARED = 1,
-	CURL_LOCK_ACCESS_SINGLE = 2,
-	CURL_LOCK_ACCESS_LAST   = 4,
-$
-
-public type curl_lock_access( integer n )
-	return ((n >= CURL_LOCK_ACCESS_NONE) and (n <= CURL_LOCK_ACCESS_LAST))
+/* Different lock access types */
+public enum type curl_lock_access
+	CURL_LOCK_ACCESS_NONE   = 0, /* unspecified action */
+	CURL_LOCK_ACCESS_SHARED = 1, /* for read perhaps */
+	CURL_LOCK_ACCESS_SINGLE = 2, /* for write perhaps */
+	CURL_LOCK_ACCESS_LAST        /* never use */
 end type
 
-
-public constant
-	CURLVERSION_FIRST  = 0,
-	CURLVERSION_SECOND = 1,
-	CURLVERSION_THIRD  = 2,
-	CURLVERSION_FOURTH = 3,
-	CURLVERSION_LAST   = 4,
-$
-
-public type CURLversion( integer n )
-	return ((n >= CURLVERSION_FIRST) and (n <= CURLVERSION_LAST))
+public enum type CURLSHcode
+	CURLSHE_OK = 0,       /* all is fine */
+	CURLSHE_BAD_OPTION,   /* 1 */
+	CURLSHE_IN_USE,       /* 2 */
+	CURLSHE_INVALID,      /* 3 */
+	CURLSHE_NOMEM,        /* 4 out of memory */
+	CURLSHE_NOT_BUILT_IN, /* 5 feature not present in lib */
+	CURLSHE_LAST          /* never use */
 end type
 
-public constant CURLVERSION_NOW = CURLVERSION_FOURTH
+public enum type CURLSHoption
+	CURLSHOPT_NONE = 0,   /* don't use */
+	CURLSHOPT_SHARE,      /* specify a data type to share */
+	CURLSHOPT_UNSHARE,    /* specify which data type to stop sharing */
+	CURLSHOPT_LOCKFUNC,   /* pass in a 'curl_lock_function' pointer */
+	CURLSHOPT_UNLOCKFUNC, /* pass in a 'curl_unlock_function' pointer */
+	CURLSHOPT_USERDATA,   /* pass in a user data pointer used in the lock/unlock
+							 callback functions */
+	CURLSHOPT_LAST        /* never use */
+end type
+
+public function curl_share_init()
+	return c_func( _curl_share_init, {} )
+end function
+
+public function curl_share_setopt( atom handle, atom option, atom param )
+	return c_func( _curl_share_setopt, {handle,option,param} )
+end function
+
+public function curl_share_cleanup( atom handle )
+	return c_func( _curl_share_cleanup, {handle} )
+end function
+
+/****************************************************************************
+ * Structures for querying information about the curl library at runtime.
+ */
+
+public enum type CURLversion
+	CURLVERSION_FIRST = 0,
+	CURLVERSION_SECOND,
+	CURLVERSION_THIRD,
+	CURLVERSION_FOURTH,
+	CURLVERSION_FIFTH,
+	CURLVERSION_SIXTH,
+	CURLVERSION_SEVENTH,
+	CURLVERSION_EIGHTH,
+	CURLVERSION_LAST /* never actually use this */
+end type
+
+/* The 'CURLVERSION_NOW' is the symbolic name meant to be used by
+   basically all programs ever that want to get version information. It is
+   meant to be a built-in version number for what kind of struct the caller
+   expects. If the struct ever changes, we redefine the NOW to another enum
+   from above. */
+public constant CURLVERSION_NOW = CURLVERSION_EIGHTH
 
 public constant
-	CURL_VERSION_IPV6         =       1,
-	CURL_VERSION_KERBEROS4    =       2,
-	CURL_VERSION_SSL          =       4,
-	CURL_VERSION_LIBZ         =       8,
-	CURL_VERSION_NTLM         =      16,
-	CURL_VERSION_GSSNEGOTIATE =      32,
-	CURL_VERSION_DEBUG        =      64,
-	CURL_VERSION_ASYNCHDNS    =     128,
-	CURL_VERSION_SPNEGO       =     256,
-	CURL_VERSION_LARGEFILE    =     512,
-	CURL_VERSION_IDN          =    1024,
-	CURL_VERSION_SSPI         =    2048,
-	CURL_VERSION_CONV         =    4096,
-	CURL_VERSION_CURLDEBUG    =    8192,
-	CURL_VERSION_TLSAUTH_SRP  =   16384,
-	CURL_VERSION_NTLM_WB      =   32768,
-	CURL_VERSION_HTTP2        =   65536,
-	CURL_VERSION_GSSAPI       =  131072,
-	CURL_VERSION_KERBEROS5    =  262144,
-	CURL_VERSION_UNIX_SOCKETS =  524288,
-	CURL_VERSION_PSL          = 1048576,
+	CURL_VERSION_IPV6         =         1, --  (1<<0) /* IPv6-enabled */
+	CURL_VERSION_KERBEROS4    =         2, --  (1<<1) /* Kerberos V4 auth is supported (deprecated) */
+	CURL_VERSION_SSL          =         4, --  (1<<2) /* SSL options are present */
+	CURL_VERSION_LIBZ         =         8, --  (1<<3) /* libz features are present */
+	CURL_VERSION_NTLM         =        16, --  (1<<4) /* NTLM auth is supported */
+	CURL_VERSION_GSSNEGOTIATE =        32, --  (1<<5) /* Negotiate auth is supported (deprecated) */
+	CURL_VERSION_DEBUG        =        64, --  (1<<6) /* Built with debug capabilities */
+	CURL_VERSION_ASYNCHDNS    =       128, --  (1<<7) /* Asynchronous DNS resolves */
+	CURL_VERSION_SPNEGO       =       256, --  (1<<8) /* SPNEGO auth is supported */
+	CURL_VERSION_LARGEFILE    =       512, --  (1<<9) /* Supports files larger than 2GB */
+	CURL_VERSION_IDN          =      1024, -- (1<<10) /* Internationized Domain Names are supported */
+	CURL_VERSION_SSPI         =      2048, -- (1<<11) /* Built against Windows SSPI */
+	CURL_VERSION_CONV         =      4096, -- (1<<12) /* Character conversions supported */
+	CURL_VERSION_CURLDEBUG    =      8192, -- (1<<13) /* Debug memory tracking supported */
+	CURL_VERSION_TLSAUTH_SRP  =     16384, -- (1<<14) /* TLS-SRP auth is supported */
+	CURL_VERSION_NTLM_WB      =     32768, -- (1<<15) /* NTLM delegation to winbind helper is supported */
+	CURL_VERSION_HTTP2        =     65536, -- (1<<16) /* HTTP2 support built-in */
+	CURL_VERSION_GSSAPI       =    131072, -- (1<<17) /* Built against a GSS-API library */
+	CURL_VERSION_KERBEROS5    =    262144, -- (1<<18) /* Kerberos V5 auth is supported */
+	CURL_VERSION_UNIX_SOCKETS =    524288, -- (1<<19) /* Unix domain sockets support */
+	CURL_VERSION_PSL          =   1048576, -- (1<<20) /* Mozilla's Public Suffix List, used for cookie domain verification */
+	CURL_VERSION_HTTPS_PROXY  =   2097152, -- (1<<21) /* HTTPS-proxy support built-in */
+	CURL_VERSION_MULTI_SSL    =   4194304, -- (1<<22) /* Multiple SSL backends available */
+	CURL_VERSION_BROTLI       =   8388608, -- (1<<23) /* Brotli features are present. */
+	CURL_VERSION_ALTSVC       =  16777216, -- (1<<24) /* Alt-Svc handling built-in */
+	CURL_VERSION_HTTP3        =  33554432, -- (1<<25) /* HTTP3 support built-in */
+	CURL_VERSION_ZSTD         =  67108864, -- (1<<26) /* zstd features are present */
+	CURL_VERSION_UNICODE      = 134217728, -- (1<<27) /* Unicode support on Windows */
 $
 
-public constant CURLPAUSE_RECV      = 1
-public constant CURLPAUSE_RECV_CONT = 0
-
-public constant CURLPAUSE_SEND      = 4
-public constant CURLPAUSE_SEND_CONT = 0
-
-public constant CURLPAUSE_ALL  = or_bits(CURLPAUSE_RECV, CURLPAUSE_SEND)
-public constant CURLPAUSE_CONT = or_bits(CURLPAUSE_RECV_CONT, CURLPAUSE_SEND_CONT)
-
-constant SETOPT_OPTIONS = {
-	{CURLOPT_ACCEPTTIMEOUT_MS,            "CURLOPT_ACCEPTTIMEOUT_MS"},
-	{CURLOPT_ACCEPT_ENCODING,             "CURLOPT_ACCEPT_ENCODING"},
-	{CURLOPT_ADDRESS_SCOPE,               "CURLOPT_ADDRESS_SCOPE"},
-	{CURLOPT_APPEND,                      "CURLOPT_APPEND"},
-	{CURLOPT_AUTOREFERER,                 "CURLOPT_AUTOREFERER"},
-	{CURLOPT_BUFFERSIZE,                  "CURLOPT_BUFFERSIZE"},
-	{CURLOPT_CAINFO,                      "CURLOPT_CAINFO"},
-	{CURLOPT_CAPATH,                      "CURLOPT_CAPATH"},
-	{CURLOPT_CERTINFO,                    "CURLOPT_CERTINFO"},
-	{CURLOPT_CHUNK_BGN_FUNCTION,          "CURLOPT_CHUNK_BGN_FUNCTION"},
-	{CURLOPT_CHUNK_DATA,                  "CURLOPT_CHUNK_DATA"},
-	{CURLOPT_CHUNK_END_FUNCTION,          "CURLOPT_CHUNK_END_FUNCTION"},
-	{CURLOPT_CLOSESOCKETDATA,             "CURLOPT_CLOSESOCKETDATA"},
-	{CURLOPT_CLOSESOCKETFUNCTION,         "CURLOPT_CLOSESOCKETFUNCTION"},
-	{CURLOPT_CONNECTTIMEOUT,              "CURLOPT_CONNECTTIMEOUT"},
-	{CURLOPT_CONNECTTIMEOUT_MS,           "CURLOPT_CONNECTTIMEOUT_MS"},
-	{CURLOPT_CONNECT_ONLY,                "CURLOPT_CONNECT_ONLY"},
-	{CURLOPT_CONNECT_TO,                  "CURLOPT_CONNECT_TO"},
-	{CURLOPT_CONV_FROM_NETWORK_FUNCTION,  "CURLOPT_CONV_FROM_NETWORK_FUNCTION"},
-	{CURLOPT_CONV_FROM_UTF8_FUNCTION,     "CURLOPT_CONV_FROM_UTF8_FUNCTION"},
-	{CURLOPT_CONV_TO_NETWORK_FUNCTION,    "CURLOPT_CONV_TO_NETWORK_FUNCTION"},
-	{CURLOPT_COOKIE,                      "CURLOPT_COOKIE"},
-	{CURLOPT_COOKIEFILE,                  "CURLOPT_COOKIEFILE"},
-	{CURLOPT_COOKIEJAR,                   "CURLOPT_COOKIEJAR"},
-	{CURLOPT_COOKIELIST,                  "CURLOPT_COOKIELIST"},
-	{CURLOPT_COOKIESESSION,               "CURLOPT_COOKIESESSION"},
-	{CURLOPT_COPYPOSTFIELDS,              "CURLOPT_COPYPOSTFIELDS"},
-	{CURLOPT_CRLF,                        "CURLOPT_CRLF"},
-	{CURLOPT_CRLFILE,                     "CURLOPT_CRLFILE"},
-	{CURLOPT_CUSTOMREQUEST,               "CURLOPT_CUSTOMREQUEST"},
-	{CURLOPT_DEBUGDATA,                   "CURLOPT_DEBUGDATA"},
-	{CURLOPT_DEBUGFUNCTION,               "CURLOPT_DEBUGFUNCTION"},
-	{CURLOPT_DEFAULT_PROTOCOL,            "CURLOPT_DEFAULT_PROTOCOL"},
-	{CURLOPT_DIRLISTONLY,                 "CURLOPT_DIRLISTONLY"},
-	{CURLOPT_DNS_CACHE_TIMEOUT,           "CURLOPT_DNS_CACHE_TIMEOUT"},
-	{CURLOPT_DNS_INTERFACE,               "CURLOPT_DNS_INTERFACE"},
-	{CURLOPT_DNS_LOCAL_IP4,               "CURLOPT_DNS_LOCAL_IP4"},
-	{CURLOPT_DNS_LOCAL_IP6,               "CURLOPT_DNS_LOCAL_IP6"},
-	{CURLOPT_DNS_SERVERS,                 "CURLOPT_DNS_SERVERS"},
-	{CURLOPT_DNS_USE_GLOBAL_CACHE,        "CURLOPT_DNS_USE_GLOBAL_CACHE"},
-	{CURLOPT_EGDSOCKET,                   "CURLOPT_EGDSOCKET"},
-	{CURLOPT_ERRORBUFFER,                 "CURLOPT_ERRORBUFFER"},
-	{CURLOPT_EXPECT_100_TIMEOUT_MS,       "CURLOPT_EXPECT_100_TIMEOUT_MS"},
-	{CURLOPT_FAILONERROR,                 "CURLOPT_FAILONERROR"},
-	{CURLOPT_FILETIME,                    "CURLOPT_FILETIME"},
-	{CURLOPT_FNMATCH_DATA,                "CURLOPT_FNMATCH_DATA"},
-	{CURLOPT_FNMATCH_FUNCTION,            "CURLOPT_FNMATCH_FUNCTION"},
-	{CURLOPT_FOLLOWLOCATION,              "CURLOPT_FOLLOWLOCATION"},
-	{CURLOPT_FORBID_REUSE,                "CURLOPT_FORBID_REUSE"},
-	{CURLOPT_FRESH_CONNECT,               "CURLOPT_FRESH_CONNECT"},
-	{CURLOPT_FTPPORT,                     "CURLOPT_FTPPORT"},
-	{CURLOPT_FTPSSLAUTH,                  "CURLOPT_FTPSSLAUTH"},
-	{CURLOPT_FTP_ACCOUNT,                 "CURLOPT_FTP_ACCOUNT"},
-	{CURLOPT_FTP_ALTERNATIVE_TO_USER,     "CURLOPT_FTP_ALTERNATIVE_TO_USER"},
-	{CURLOPT_FTP_CREATE_MISSING_DIRS,     "CURLOPT_FTP_CREATE_MISSING_DIRS"},
-	{CURLOPT_FTP_FILEMETHOD,              "CURLOPT_FTP_FILEMETHOD"},
-	{CURLOPT_FTP_RESPONSE_TIMEOUT,        "CURLOPT_FTP_RESPONSE_TIMEOUT"},
-	{CURLOPT_FTP_SKIP_PASV_IP,            "CURLOPT_FTP_SKIP_PASV_IP"},
-	{CURLOPT_FTP_SSL_CCC,                 "CURLOPT_FTP_SSL_CCC"},
-	{CURLOPT_FTP_USE_EPRT,                "CURLOPT_FTP_USE_EPRT"},
-	{CURLOPT_FTP_USE_EPSV,                "CURLOPT_FTP_USE_EPSV"},
-	{CURLOPT_FTP_USE_PRET,                "CURLOPT_FTP_USE_PRET"},
-	{CURLOPT_GSSAPI_DELEGATION,           "CURLOPT_GSSAPI_DELEGATION"},
-	{CURLOPT_HEADER,                      "CURLOPT_HEADER"},
-	{CURLOPT_HEADERDATA,                  "CURLOPT_HEADERDATA"},
-	{CURLOPT_HEADERFUNCTION,              "CURLOPT_HEADERFUNCTION"},
-	{CURLOPT_HEADEROPT,                   "CURLOPT_HEADEROPT"},
-	{CURLOPT_HTTP200ALIASES,              "CURLOPT_HTTP200ALIASES"},
-	{CURLOPT_HTTPAUTH,                    "CURLOPT_HTTPAUTH"},
-	{CURLOPT_HTTPGET,                     "CURLOPT_HTTPGET"},
-	{CURLOPT_HTTPHEADER,                  "CURLOPT_HTTPHEADER"},
-	{CURLOPT_HTTPPOST,                    "CURLOPT_HTTPPOST"},
-	{CURLOPT_HTTPPROXYTUNNEL,             "CURLOPT_HTTPPROXYTUNNEL"},
-	{CURLOPT_HTTP_CONTENT_DECODING,       "CURLOPT_HTTP_CONTENT_DECODING"},
-	{CURLOPT_HTTP_TRANSFER_DECODING,      "CURLOPT_HTTP_TRANSFER_DECODING"},
-	{CURLOPT_HTTP_VERSION,                "CURLOPT_HTTP_VERSION"},
-	{CURLOPT_IGNORE_CONTENT_LENGTH,       "CURLOPT_IGNORE_CONTENT_LENGTH"},
-	{CURLOPT_INFILESIZE,                  "CURLOPT_INFILESIZE"},
-	{CURLOPT_INFILESIZE_LARGE,            "CURLOPT_INFILESIZE_LARGE"},
-	{CURLOPT_INTERFACE,                   "CURLOPT_INTERFACE"},
-	{CURLOPT_INTERLEAVEDATA,              "CURLOPT_INTERLEAVEDATA"},
-	{CURLOPT_INTERLEAVEFUNCTION,          "CURLOPT_INTERLEAVEFUNCTION"},
-	{CURLOPT_IOCTLDATA,                   "CURLOPT_IOCTLDATA"},
-	{CURLOPT_IOCTLFUNCTION,               "CURLOPT_IOCTLFUNCTION"},
-	{CURLOPT_IPRESOLVE,                   "CURLOPT_IPRESOLVE"},
-	{CURLOPT_ISSUERCERT,                  "CURLOPT_ISSUERCERT"},
-	{CURLOPT_KEYPASSWD,                   "CURLOPT_KEYPASSWD"},
-	{CURLOPT_KRBLEVEL,                    "CURLOPT_KRBLEVEL"},
-	{CURLOPT_LOCALPORT,                   "CURLOPT_LOCALPORT"},
-	{CURLOPT_LOCALPORTRANGE,              "CURLOPT_LOCALPORTRANGE"},
-	{CURLOPT_LOGIN_OPTIONS,               "CURLOPT_LOGIN_OPTIONS"},
-	{CURLOPT_LOW_SPEED_LIMIT,             "CURLOPT_LOW_SPEED_LIMIT"},
-	{CURLOPT_LOW_SPEED_TIME,              "CURLOPT_LOW_SPEED_TIME"},
-	{CURLOPT_MAIL_AUTH,                   "CURLOPT_MAIL_AUTH"},
-	{CURLOPT_MAIL_FROM,                   "CURLOPT_MAIL_FROM"},
-	{CURLOPT_MAIL_RCPT,                   "CURLOPT_MAIL_RCPT"},
-	{CURLOPT_MAXCONNECTS,                 "CURLOPT_MAXCONNECTS"},
-	{CURLOPT_MAXFILESIZE,                 "CURLOPT_MAXFILESIZE"},
-	{CURLOPT_MAXFILESIZE_LARGE,           "CURLOPT_MAXFILESIZE_LARGE"},
-	{CURLOPT_MAXREDIRS,                   "CURLOPT_MAXREDIRS"},
-	{CURLOPT_MAX_RECV_SPEED_LARGE,        "CURLOPT_MAX_RECV_SPEED_LARGE"},
-	{CURLOPT_MAX_SEND_SPEED_LARGE,        "CURLOPT_MAX_SEND_SPEED_LARGE"},
-	{CURLOPT_NETRC,                       "CURLOPT_NETRC"},
-	{CURLOPT_NETRC_FILE,                  "CURLOPT_NETRC_FILE"},
-	{CURLOPT_NEW_DIRECTORY_PERMS,         "CURLOPT_NEW_DIRECTORY_PERMS"},
-	{CURLOPT_NEW_FILE_PERMS,              "CURLOPT_NEW_FILE_PERMS"},
-	{CURLOPT_NOBODY,                      "CURLOPT_NOBODY"},
-	{CURLOPT_NOPROGRESS,                  "CURLOPT_NOPROGRESS"},
-	{CURLOPT_NOPROXY,                     "CURLOPT_NOPROXY"},
-	{CURLOPT_NOSIGNAL,                    "CURLOPT_NOSIGNAL"},
-	{CURLOPT_OPENSOCKETDATA,              "CURLOPT_OPENSOCKETDATA"},
-	{CURLOPT_OPENSOCKETFUNCTION,          "CURLOPT_OPENSOCKETFUNCTION"},
-	{CURLOPT_PASSWORD,                    "CURLOPT_PASSWORD"},
-	{CURLOPT_PATH_AS_IS,                  "CURLOPT_PATH_AS_IS"},
-	{CURLOPT_PINNEDPUBLICKEY,             "CURLOPT_PINNEDPUBLICKEY"},
-	{CURLOPT_PIPEWAIT,                    "CURLOPT_PIPEWAIT"},
-	{CURLOPT_PORT,                        "CURLOPT_PORT"},
-	{CURLOPT_POST,                        "CURLOPT_POST"},
-	{CURLOPT_POSTFIELDS,                  "CURLOPT_POSTFIELDS"},
-	{CURLOPT_POSTFIELDSIZE,               "CURLOPT_POSTFIELDSIZE"},
-	{CURLOPT_POSTFIELDSIZE_LARGE,         "CURLOPT_POSTFIELDSIZE_LARGE"},
-	{CURLOPT_POSTQUOTE,                   "CURLOPT_POSTQUOTE"},
-	{CURLOPT_POSTREDIR,                   "CURLOPT_POSTREDIR"},
-	{CURLOPT_PREQUOTE,                    "CURLOPT_PREQUOTE"},
-	{CURLOPT_PRIVATE,                     "CURLOPT_PRIVATE"},
-	{CURLOPT_PROGRESSDATA,                "CURLOPT_PROGRESSDATA"},
-	{CURLOPT_PROGRESSFUNCTION,            "CURLOPT_PROGRESSFUNCTION"},
-	{CURLOPT_PROTOCOLS,                   "CURLOPT_PROTOCOLS"},
-	{CURLOPT_PROXY,                       "CURLOPT_PROXY"},
-	{CURLOPT_PROXYAUTH,                   "CURLOPT_PROXYAUTH"},
-	{CURLOPT_PROXYHEADER,                 "CURLOPT_PROXYHEADER"},
-	{CURLOPT_PROXYPASSWORD,               "CURLOPT_PROXYPASSWORD"},
-	{CURLOPT_PROXYPORT,                   "CURLOPT_PROXYPORT"},
-	{CURLOPT_PROXYTYPE,                   "CURLOPT_PROXYTYPE"},
-	{CURLOPT_PROXYUSERNAME,               "CURLOPT_PROXYUSERNAME"},
-	{CURLOPT_PROXYUSERPWD,                "CURLOPT_PROXYUSERPWD"},
-	{CURLOPT_PROXY_SERVICE_NAME,          "CURLOPT_PROXY_SERVICE_NAME"},
-	{CURLOPT_PROXY_TRANSFER_MODE,         "CURLOPT_PROXY_TRANSFER_MODE"},
-	{CURLOPT_PUT,                         "CURLOPT_PUT"},
-	{CURLOPT_QUOTE,                       "CURLOPT_QUOTE"},
-	{CURLOPT_RANDOM_FILE,                 "CURLOPT_RANDOM_FILE"},
-	{CURLOPT_RANGE,                       "CURLOPT_RANGE"},
-	{CURLOPT_READDATA,                    "CURLOPT_READDATA"},
-	{CURLOPT_READFUNCTION,                "CURLOPT_READFUNCTION"},
-	{CURLOPT_REDIR_PROTOCOLS,             "CURLOPT_REDIR_PROTOCOLS"},
-	{CURLOPT_REFERER,                     "CURLOPT_REFERER"},
-	{CURLOPT_RESOLVE,                     "CURLOPT_RESOLVE"},
-	{CURLOPT_RESUME_FROM,                 "CURLOPT_RESUME_FROM"},
-	{CURLOPT_RESUME_FROM_LARGE,           "CURLOPT_RESUME_FROM_LARGE"},
-	{CURLOPT_RTSP_CLIENT_CSEQ,            "CURLOPT_RTSP_CLIENT_CSEQ"},
-	{CURLOPT_RTSP_REQUEST,                "CURLOPT_RTSP_REQUEST"},
-	{CURLOPT_RTSP_SERVER_CSEQ,            "CURLOPT_RTSP_SERVER_CSEQ"},
-	{CURLOPT_RTSP_SESSION_ID,             "CURLOPT_RTSP_SESSION_ID"},
-	{CURLOPT_RTSP_STREAM_URI,             "CURLOPT_RTSP_STREAM_URI"},
-	{CURLOPT_RTSP_TRANSPORT,              "CURLOPT_RTSP_TRANSPORT"},
-	{CURLOPT_SASL_IR,                     "CURLOPT_SASL_IR"},
-	{CURLOPT_SEEKDATA,                    "CURLOPT_SEEKDATA"},
-	{CURLOPT_SEEKFUNCTION,                "CURLOPT_SEEKFUNCTION"},
-	{CURLOPT_SERVICE_NAME,                "CURLOPT_SERVICE_NAME"},
-	{CURLOPT_SHARE,                       "CURLOPT_SHARE"},
-	{CURLOPT_SOCKOPTDATA,                 "CURLOPT_SOCKOPTDATA"},
-	{CURLOPT_SOCKOPTFUNCTION,             "CURLOPT_SOCKOPTFUNCTION"},
-	{CURLOPT_SOCKS5_GSSAPI_NEC,           "CURLOPT_SOCKS5_GSSAPI_NEC"},
-	{CURLOPT_SOCKS5_GSSAPI_SERVICE,       "CURLOPT_SOCKS5_GSSAPI_SERVICE"},
-	{CURLOPT_SSH_AUTH_TYPES,              "CURLOPT_SSH_AUTH_TYPES"},
-	{CURLOPT_SSH_HOST_PUBLIC_KEY_MD5,     "CURLOPT_SSH_HOST_PUBLIC_KEY_MD5"},
-	{CURLOPT_SSH_KEYDATA,                 "CURLOPT_SSH_KEYDATA"},
-	{CURLOPT_SSH_KEYFUNCTION,             "CURLOPT_SSH_KEYFUNCTION"},
-	{CURLOPT_SSH_KNOWNHOSTS,              "CURLOPT_SSH_KNOWNHOSTS"},
-	{CURLOPT_SSH_PRIVATE_KEYFILE,         "CURLOPT_SSH_PRIVATE_KEYFILE"},
-	{CURLOPT_SSH_PUBLIC_KEYFILE,          "CURLOPT_SSH_PUBLIC_KEYFILE"},
-	{CURLOPT_SSLCERT,                     "CURLOPT_SSLCERT"},
-	{CURLOPT_SSLCERTTYPE,                 "CURLOPT_SSLCERTTYPE"},
-	{CURLOPT_SSLENGINE,                   "CURLOPT_SSLENGINE"},
-	{CURLOPT_SSLENGINE_DEFAULT,           "CURLOPT_SSLENGINE_DEFAULT"},
-	{CURLOPT_SSLKEY,                      "CURLOPT_SSLKEY"},
-	{CURLOPT_SSLKEYTYPE,                  "CURLOPT_SSLKEYTYPE"},
-	{CURLOPT_SSLVERSION,                  "CURLOPT_SSLVERSION"},
-	{CURLOPT_SSL_CIPHER_LIST,             "CURLOPT_SSL_CIPHER_LIST"},
-	{CURLOPT_SSL_CTX_DATA,                "CURLOPT_SSL_CTX_DATA"},
-	{CURLOPT_SSL_CTX_FUNCTION,            "CURLOPT_SSL_CTX_FUNCTION"},
-	{CURLOPT_SSL_ENABLE_ALPN,             "CURLOPT_SSL_ENABLE_ALPN"},
-	{CURLOPT_SSL_ENABLE_NPN,              "CURLOPT_SSL_ENABLE_NPN"},
-	{CURLOPT_SSL_FALSESTART,              "CURLOPT_SSL_FALSESTART"},
-	{CURLOPT_SSL_OPTIONS,                 "CURLOPT_SSL_OPTIONS"},
-	{CURLOPT_SSL_SESSIONID_CACHE,         "CURLOPT_SSL_SESSIONID_CACHE"},
-	{CURLOPT_SSL_VERIFYHOST,              "CURLOPT_SSL_VERIFYHOST"},
-	{CURLOPT_SSL_VERIFYPEER,              "CURLOPT_SSL_VERIFYPEER"},
-	{CURLOPT_SSL_VERIFYSTATUS,            "CURLOPT_SSL_VERIFYSTATUS"},
-	{CURLOPT_STDERR,                      "CURLOPT_STDERR"},
-	{CURLOPT_STREAM_DEPENDS,              "CURLOPT_STREAM_DEPENDS"},
-	{CURLOPT_STREAM_DEPENDS_E,            "CURLOPT_STREAM_DEPENDS_E"},
-	{CURLOPT_STREAM_WEIGHT,               "CURLOPT_STREAM_WEIGHT"},
-	{CURLOPT_TCP_FASTOPEN,                "CURLOPT_TCP_FASTOPEN"},
-	{CURLOPT_TCP_KEEPALIVE,               "CURLOPT_TCP_KEEPALIVE"},
-	{CURLOPT_TCP_KEEPIDLE,                "CURLOPT_TCP_KEEPIDLE"},
-	{CURLOPT_TCP_KEEPINTVL,               "CURLOPT_TCP_KEEPINTVL"},
-	{CURLOPT_TCP_NODELAY,                 "CURLOPT_TCP_NODELAY"},
-	{CURLOPT_TELNETOPTIONS,               "CURLOPT_TELNETOPTIONS"},
-	{CURLOPT_TFTP_BLKSIZE,                "CURLOPT_TFTP_BLKSIZE"},
-	{CURLOPT_TFTP_NO_OPTIONS,             "CURLOPT_TFTP_NO_OPTIONS"},
-	{CURLOPT_TIMECONDITION,               "CURLOPT_TIMECONDITION"},
-	{CURLOPT_TIMEOUT,                     "CURLOPT_TIMEOUT"},
-	{CURLOPT_TIMEOUT_MS,                  "CURLOPT_TIMEOUT_MS"},
-	{CURLOPT_TIMEVALUE,                   "CURLOPT_TIMEVALUE"},
-	{CURLOPT_TLSAUTH_PASSWORD,            "CURLOPT_TLSAUTH_PASSWORD"},
-	{CURLOPT_TLSAUTH_TYPE,                "CURLOPT_TLSAUTH_TYPE"},
-	{CURLOPT_TLSAUTH_USERNAME,            "CURLOPT_TLSAUTH_USERNAME"},
-	{CURLOPT_TRANSFERTEXT,                "CURLOPT_TRANSFERTEXT"},
-	{CURLOPT_TRANSFER_ENCODING,           "CURLOPT_TRANSFER_ENCODING"},
-	{CURLOPT_UNIX_SOCKET_PATH,            "CURLOPT_UNIX_SOCKET_PATH"},
-	{CURLOPT_UNRESTRICTED_AUTH,           "CURLOPT_UNRESTRICTED_AUTH"},
-	{CURLOPT_UPLOAD,                      "CURLOPT_UPLOAD"},
-	{CURLOPT_URL,                         "CURLOPT_URL"},
-	{CURLOPT_USERAGENT,                   "CURLOPT_USERAGENT"},
-	{CURLOPT_USERNAME,                    "CURLOPT_USERNAME"},
-	{CURLOPT_USERPWD,                     "CURLOPT_USERPWD"},
-	{CURLOPT_USE_SSL,                     "CURLOPT_USE_SSL"},
-	{CURLOPT_VERBOSE,                     "CURLOPT_VERBOSE"},
-	{CURLOPT_WILDCARDMATCH,               "CURLOPT_WILDCARDMATCH"},
-	{CURLOPT_WRITEDATA,                   "CURLOPT_WRITEDATA"},
-	{CURLOPT_WRITEFUNCTION,               "CURLOPT_WRITEFUNCTION"},
-	{CURLOPT_XFERINFODATA,                "CURLOPT_XFERINFODATA"},
-	{CURLOPT_XFERINFOFUNCTION,            "CURLOPT_XFERINFOFUNCTION"},
-	{CURLOPT_XOAUTH2_BEARER,              "CURLOPT_XOAUTH2_BEARER"}
-}
-
-
-constant GETINFO_OPTIONS = {
-	{CURLINFO_CONTENT_TYPE,               "CURLINFO_CONTENT_TYPE"},
-	{CURLINFO_EFFECTIVE_URL,              "CURLINFO_EFFECTIVE_URL"},
-	{CURLINFO_FTP_ENTRY_PATH,             "CURLINFO_FTP_ENTRY_PATH"},
-	{CURLINFO_LOCAL_IP,                   "CURLINFO_LOCAL_IP"},
-	{CURLINFO_PRIMARY_IP,                 "CURLINFO_PRIMARY_IP"},
-	{CURLINFO_PRIVATE,                    "CURLINFO_PRIVATE"},
-	{CURLINFO_REDIRECT_URL,               "CURLINFO_REDIRECT_URL"},
-	{CURLINFO_RTSP_SESSION_ID,            "CURLINFO_RTSP_SESSION_ID"},
-	{CURLINFO_ACTIVESOCKET,               "CURLINFO_ACTIVESOCKET"},
-	{CURLINFO_APPCONNECT_TIME,            "CURLINFO_APPCONNECT_TIME"},
-	{CURLINFO_CONNECT_TIME,               "CURLINFO_CONNECT_TIME"},
-	{CURLINFO_CONTENT_LENGTH_DOWNLOAD,    "CURLINFO_CONTENT_LENGTH_DOWNLOAD"},
-	{CURLINFO_CONTENT_LENGTH_UPLOAD,      "CURLINFO_CONTENT_LENGTH_UPLOAD"},
-	{CURLINFO_NAMELOOKUP_TIME,            "CURLINFO_NAMELOOKUP_TIME"},
-	{CURLINFO_PRETRANSFER_TIME,           "CURLINFO_PRETRANSFER_TIME"},
-	{CURLINFO_REDIRECT_TIME,              "CURLINFO_REDIRECT_TIME"},
-	{CURLINFO_SIZE_DOWNLOAD,              "CURLINFO_SIZE_DOWNLOAD"},
-	{CURLINFO_SIZE_UPLOAD,                "CURLINFO_SIZE_UPLOAD"},
-	{CURLINFO_SPEED_DOWNLOAD,             "CURLINFO_SPEED_DOWNLOAD"},
-	{CURLINFO_SPEED_UPLOAD,               "CURLINFO_SPEED_UPLOAD"},
-	{CURLINFO_STARTTRANSFER_TIME,         "CURLINFO_STARTTRANSFER_TIME"},
-	{CURLINFO_TOTAL_TIME,                 "CURLINFO_TOTAL_TIME"},
-	{CURLINFO_CONDITION_UNMET,            "CURLINFO_CONDITION_UNMET"},
-	{CURLINFO_FILETIME,                   "CURLINFO_FILETIME"},
-	{CURLINFO_HEADER_SIZE,                "CURLINFO_HEADER_SIZE"},
-	{CURLINFO_HTTP_CONNECTCODE,           "CURLINFO_HTTP_CONNECTCODE"},
-	{CURLINFO_HTTP_VERSION,               "CURLINFO_HTTP_VERSION"},
-	{CURLINFO_HTTPAUTH_AVAIL,             "CURLINFO_HTTPAUTH_AVAIL"},
-	{CURLINFO_LASTSOCKET,                 "CURLINFO_LASTSOCKET"},
-	{CURLINFO_LOCAL_PORT,                 "CURLINFO_LOCAL_PORT"},
-	{CURLINFO_NUM_CONNECTS,               "CURLINFO_NUM_CONNECTS"},
-	{CURLINFO_OS_ERRNO,                   "CURLINFO_OS_ERRNO"},
-	{CURLINFO_PRIMARY_PORT,               "CURLINFO_PRIMARY_PORT"},
-	{CURLINFO_PROXYAUTH_AVAIL,            "CURLINFO_PROXYAUTH_AVAIL"},
-	{CURLINFO_REDIRECT_COUNT,             "CURLINFO_REDIRECT_COUNT"},
-	{CURLINFO_REQUEST_SIZE,               "CURLINFO_REQUEST_SIZE"},
-	{CURLINFO_RESPONSE_CODE,              "CURLINFO_RESPONSE_CODE"},
-	{CURLINFO_RTSP_CLIENT_CSEQ,           "CURLINFO_RTSP_CLIENT_CSEQ"},
-	{CURLINFO_RTSP_CSEQ_RECV,             "CURLINFO_RTSP_CSEQ_RECV"},
-	{CURLINFO_RTSP_SERVER_CSEQ,           "CURLINFO_RTSP_SERVER_CSEQ"},
-	{CURLINFO_SSL_VERIFYRESULT,           "CURLINFO_SSL_VERIFYRESULT"},
-	{CURLINFO_CERTINFO,                   "CURLINFO_CERTINFO"},
-	{CURLINFO_COOKIELIST,                 "CURLINFO_COOKIELIST"},
-	{CURLINFO_SSL_ENGINES,                "CURLINFO_SSL_ENGINES"},
-	{CURLINFO_TLS_SESSION,                "CURLINFO_TLS_SESSION"},
-	{CURLINFO_TLS_SSL_PTR,                "CURLINFO_TLS_SSL_PTR"}
-}
-
-public function curl_write_callback( atom ptr, atom size, atom nmemb, atom stream )
-
-	atom realsize = size * nmemb
-	sequence data = peek({ ptr, realsize })
-
-	ram_space[stream] = append( ram_space[stream], data )
-
-	return realsize
+/*
+ * NAME curl_version_info()
+ *
+ * DESCRIPTION
+ *
+ * This function returns a pointer to a static copy of the version info
+ * struct. See above.
+ */
+public function curl_version_info( atom age = CURLVERSION_NOW )
+	return c_func( _curl_version_info, {age} )
 end function
 
-public function curl_read_callback( atom ptr, atom size, atom nmemb, atom stream )
-	poke( ptr, ram_space[stream] )
-	return size * nmemb
-end function
+/*
+ * NAME curl_easy_strerror()
+ *
+ * DESCRIPTION
+ *
+ * The curl_easy_strerror function may be used to turn a CURLcode value
+ * into the equivalent human readable error string.  This is useful
+ * for printing meaningful error messages.
+ */
+public function curl_easy_strerror( atom errornum )
 
-public function curl_strequal( sequence s1, sequence s2 )
+	atom result = c_func( _curl_easy_strerror, {errornum} )
+	sequence string = ""
 
-	atom addr_s1 = allocate_string( s1, 1 )
-	atom addr_s2 = allocate_string( s2, 1 )
-
-	return c_func( _curl_strequal, {addr_s1,addr_s2} )
-end function
-
-
-public function curl_strnequal( sequence s1, sequence s2, atom n )
-
-	atom addr_s1 = allocate_string( s1, 1 )
-	atom addr_s2 = allocate_string( s2, 1 )
-
-	return c_func( _curl_strnequal, {addr_s1,addr_s2,n} )
-end function
-
-public function curl_formadd( atom httppost, atom last_post, atom param )
-	return c_func( _curl_formadd, {httppost,last_post,param} )
-end function
-
-public function curl_formget( atom form, atom arg, atom app )
-	return c_func( _curl_formget, {form,arg,app} )
-end function
-
-public procedure curl_formfree( atom form )
-	c_proc( _curl_formfree, {form} )
-end procedure
-
-public function curl_getenv( sequence variable )
-
-	atom addr = allocate_string( variable, 1 )
-	atom ret = c_func( _curl_getenv, {addr} )
-
-	return peek_string( ret )
-end function
-
-public function curl_version()
-
-	atom ret = c_func( _curl_version, {} )
-
-	return peek_string( ret )
-end function
-
-public function curl_easy_escape( atom handle, sequence string )
-
-	atom addr = allocate_string( string, 1 )
-	atom ret = c_func( _curl_easy_escape, {handle,addr,length(string)} )
-
-	return peek_string( ret )
-end function
-
-public function curl_escape( sequence string )
-
-	atom addr = allocate_string( string, 1 )
-	atom ret = c_func( _curl_escape, {addr,length(string)} )
-
-	return peek_string( ret )
-end function
-
-
-public function curl_easy_unescape( atom handle, sequence string )
-
-	atom addr = allocate_string( string, 1 )
-	atom len = allocate_data( sizeof(C_INT), 1 )
-	atom ret = c_func( _curl_easy_unescape, {handle,addr,length(string),len} )
-
-	return peek_string( ret )
-end function
-
-
-public function curl_unescape( sequence string )
-
-	atom addr = allocate_string( string, 1 )
-	atom ret = c_func( _curl_unescape, {addr,length(string)} )
-
-	return peek_string( ret )
-end function
-
-
-public procedure curl_free( atom p )
-	c_proc( _curl_free, {p} )
-end procedure
-
-
-public function curl_global_init( atom flags )
-	return c_func( _curl_global_init, {flags} )
-end function
-
-public function curl_slist_append( atom slist, sequence string )
-
-  atom addr = allocate_string( string, 1 )
-
-  return c_func( _curl_slist_append, {slist,addr} )
-end function
-
-public procedure curl_slist_free_all( atom slist )
-	c_proc( _curl_slist_free_all, {slist} )
-end procedure
-
-public function peek_curl_slist( atom slist, integer max )
-
-	atom next = slist
-	sequence strings = {}
-
-	if slist = NULL then
-		return strings
+	if result != NULL then
+		string = peek_string( result )
 	end if
 
-	while next != NULL do
-
-		sequence s = peek_pointer({ next, 2 })
-		if s[1] = NULL then
-			return strings
-		end if
-
-		sequence str = peek_string( s[1] )
-		strings = append( strings, str )
-
-		if (max != -1) and (length(strings) = max) then
-			exit
-		end if
-
-		next = s[2]
-	end while
-
-	return strings
+	return string
 end function
 
-public procedure curl_global_cleanup()
-	c_proc( _curl_global_cleanup, {} )
-end procedure
+/*
+ * NAME curl_share_strerror()
+ *
+ * DESCRIPTION
+ *
+ * The curl_share_strerror function may be used to turn a CURLSHcode value
+ * into the equivalent human readable error string.  This is useful
+ * for printing meaningful error messages.
+ */
+public function curl_share_strerror( atom errornum )
 
-public function curl_getdate( sequence string )
-	atom addr = allocate_string( string )
-	return c_func( _curl_getdate, {addr,NULL} )
+	atom result = c_func( _curl_share_strerror, {errornum} )
+	sequence string = ""
+
+	if result != NULL then
+		string = peek_string( result )
+	end if
+
+	return string
 end function
 
-public function curl_version_info()
-	return c_func( _curl_version_info, {CURLVERSION_NOW} )
-end function
-
-public function curl_easy_strerror( integer code )
-
-	atom ret = c_func( _curl_easy_strerror, {code} )
-
-	return peek_string( ret )
-end function
-
+/*
+ * NAME curl_easy_pause()
+ *
+ * DESCRIPTION
+ *
+ * The curl_easy_pause function pauses or unpauses transfers. Select the new
+ * state by setting the bitmask, use the convenience defines below.
+ *
+ */
 public function curl_easy_pause( atom handle, integer bitmask )
 	return c_func( _curl_easy_pause, {handle,bitmask} )
 end function
 
+public constant
+	CURLPAUSE_RECV      = 1, -- (1<<0)
+	CURLPAUSE_RECV_CONT = 0, -- (0)
+	CURLPAUSE_SEND      = 2, -- (1<<2)
+	CURLPAUSE_SEND_CONT = 0, -- (0)
+	CURLPAUSE_ALL       = 3, -- (CURLPAUSE_RECV|CURLPAUSE_SEND)
+	CURLPAUSE_CONT      = 0, -- (CURLPAUSE_RECV_CONT|CURLPAUSE_SEND_CONT)
+$
+
+/* Flag bits in the curl_blob struct: */
+public constant
+	CURL_BLOB_COPY      = 1,
+	CURL_BLOB_NOCOPY    = 0,
+$
+
+ifdef BITS64 then
+
+constant
+	curl_blob__data     =  0, -- void*
+	curl_blob__len      =  8, -- size_t
+	curl_blob__flags    = 16, -- unsigned int
+	SIZEOF_CURL_BLOB    = 24,
+$
+
+elsedef -- BITS32
+
+constant
+	curl_blob__data     =  0, -- void*
+	curl_blob__len      =  4, -- size_t
+	curl_blob__flags    =  8, -- unsigned int
+	SIZEOF_CURL_BLOB    = 12,
+$
+
+end ifdef
+
+/*
+ * NAME curl_easy_init()
+ *
+ * DESCRIPTION
+ *
+ */
 public function curl_easy_init()
 	return c_func( _curl_easy_init, {} )
 end function
 
-public procedure curl_easy_setopt( atom curl, integer option, object param )
+constant AUTO = -1
 
-	integer code = -1
+-- We can free string parameters to these options automatically.
+-- Other options might take ownership of the string data, or the
+-- user might have to keep track of it and free it later.
+sequence curlopt_auto_cleanup = {
+	CURLOPT_COPYPOSTFIELDS
+}
 
-	switch option with fallthru do
+/*
+ * NAME curl_easy_setopt_long()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_long( atom curl, integer option, atom param )
+	return c_func( _curl_easy_setopt_long, {curl,option,param} )
+end function
 
-		case CURLOPT_ACCEPT_ENCODING then
-		case CURLOPT_CAINFO then
-		case CURLOPT_CAPATH then
-		case CURLOPT_COOKIE then
-		case CURLOPT_COOKIEFILE then
-		case CURLOPT_COOKIEJAR then
-		case CURLOPT_COOKIELIST then
-		case CURLOPT_COPYPOSTFIELDS then
-		case CURLOPT_CRLFILE then
-		case CURLOPT_CUSTOMREQUEST then
-		case CURLOPT_DEFAULT_PROTOCOL then
-		case CURLOPT_DNS_INTERFACE then
-		case CURLOPT_DNS_LOCAL_IP4 then
-		case CURLOPT_DNS_LOCAL_IP6 then
-		case CURLOPT_DNS_SERVERS then
-		case CURLOPT_EGDSOCKET then
-		case CURLOPT_FTP_ACCOUNT then
-		case CURLOPT_FTP_ALTERNATIVE_TO_USER then
-		case CURLOPT_FTPPORT then
-		case CURLOPT_INTERFACE then
-		case CURLOPT_ISSUERCERT then
-		case CURLOPT_KEYPASSWD then
-		case CURLOPT_KRBLEVEL then
-		case CURLOPT_LOGIN_OPTIONS then
-		case CURLOPT_MAIL_AUTH then
-		case CURLOPT_MAIL_FROM then
-		case CURLOPT_NETRC_FILE then
-		case CURLOPT_NOPROXY then
-		case CURLOPT_PASSWORD then
-		case CURLOPT_PINNEDPUBLICKEY then
-		case CURLOPT_POSTFIELDS then
-		case CURLOPT_PREQUOTE then
-		case CURLOPT_PROXY then
-		case CURLOPT_PROXY_SERVICE_NAME then
-		case CURLOPT_PROXYPASSWORD then
-		case CURLOPT_PROXYUSERNAME then
-		case CURLOPT_PROXYUSERPWD then
-		case CURLOPT_RANDOM_FILE then
-		case CURLOPT_RANGE then
-		case CURLOPT_REFERER then
-		case CURLOPT_RTSP_SESSION_ID then
-		case CURLOPT_RTSP_STREAM_URI then
-		case CURLOPT_RTSP_TRANSPORT then
-		case CURLOPT_SERVICE_NAME then
-		case CURLOPT_SOCKS5_GSSAPI_SERVICE then
-		case CURLOPT_SSH_HOST_PUBLIC_KEY_MD5 then
-		case CURLOPT_SSH_KNOWNHOSTS then
-		case CURLOPT_SSH_PRIVATE_KEYFILE then
-		case CURLOPT_SSH_PUBLIC_KEYFILE then
-		case CURLOPT_SSL_CIPHER_LIST then
-		case CURLOPT_SSLCERT then
-		case CURLOPT_SSLCERTTYPE then
-		case CURLOPT_SSLENGINE then
-		case CURLOPT_SSLKEY then
-		case CURLOPT_SSLKEYTYPE then
-		case CURLOPT_TLSAUTH_PASSWORD then
-		case CURLOPT_TLSAUTH_TYPE then
-		case CURLOPT_TLSAUTH_USERNAME then
-		case CURLOPT_UNIX_SOCKET_PATH then
-		case CURLOPT_URL then
-		case CURLOPT_USERAGENT then
-		case CURLOPT_USERNAME then
-		case CURLOPT_USERPWD then
-		case CURLOPT_XOAUTH2_BEARER then
-			-- char *
-			code = c_func( _curl_easy_setopt, {curl,option,allocate_string(param)} )
-			break
+/*
+ * NAME curl_easy_setopt_ptr()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_ptr( atom curl, integer option, atom param )
+	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
+end function
 
-		case CURLOPT_ERRORBUFFER then
-			-- char *
-			code = c_func( _curl_easy_setopt, {curl,option,param} )
-			break
+/*
+ * NAME curl_easy_setopt_off_t()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_off_t( atom curl, integer option, atom param )
+	return c_func( _curl_easy_setopt_off_t, {curl,option,param} )
+end function
 
-		case CURLOPT_CHUNK_BGN_FUNCTION then
-		case CURLOPT_CHUNK_END_FUNCTION then
-		case CURLOPT_CLOSESOCKETFUNCTION then
-		case CURLOPT_CONV_FROM_NETWORK_FUNCTION then
-		case CURLOPT_CONV_FROM_UTF8_FUNCTION then
-		case CURLOPT_CONV_TO_NETWORK_FUNCTION then
-		case CURLOPT_DEBUGFUNCTION then
-		case CURLOPT_FNMATCH_FUNCTION then
-		case CURLOPT_HEADERFUNCTION then
-		case CURLOPT_INTERLEAVEFUNCTION then
-		case CURLOPT_IOCTLFUNCTION then
-		case CURLOPT_OPENSOCKETFUNCTION then
-		case CURLOPT_PROGRESSFUNCTION then
-		case CURLOPT_READFUNCTION then
-		case CURLOPT_SEEKFUNCTION then
-		case CURLOPT_SOCKOPTFUNCTION then
-		case CURLOPT_SSH_KEYFUNCTION then
-		case CURLOPT_SSL_CTX_FUNCTION then
-		case CURLOPT_WRITEFUNCTION then
-		case CURLOPT_XFERINFOFUNCTION then
-			-- callback
-			code = c_func( _curl_easy_setopt, {curl,option,param} )
-			break
+/*
+ * NAME curl_easy_setopt_string()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_string( atom curl, integer option, object param, integer cleanup = AUTO )
 
-		case CURLOPT_STREAM_DEPENDS then
-		case CURLOPT_STREAM_DEPENDS_E then
-			-- CURL *
-			code = c_func( _curl_easy_setopt, {curl,option,param} )
-			break
-
-		case CURLOPT_INFILESIZE_LARGE then
-		case CURLOPT_MAX_RECV_SPEED_LARGE then
-		case CURLOPT_MAX_SEND_SPEED_LARGE then
-		case CURLOPT_MAXFILESIZE_LARGE then
-		case CURLOPT_POSTFIELDSIZE_LARGE then
-		case CURLOPT_RESUME_FROM_LARGE then
-			-- curl_off_t
-			code = c_func( _curl_easy_setopt, {curl,option,param} )
-			break
-
-		case CURLOPT_STDERR then
-			-- FILE *
-			code = c_func( _curl_easy_setopt, {curl,option,param} )
-			break
-
-		case CURLOPT_ACCEPTTIMEOUT_MS then
-		case CURLOPT_ADDRESS_SCOPE then
-		case CURLOPT_APPEND then
-		case CURLOPT_AUTOREFERER then
-		case CURLOPT_BUFFERSIZE then
-		case CURLOPT_CERTINFO then
-		case CURLOPT_CONNECT_ONLY then
-		case CURLOPT_CONNECTTIMEOUT then
-		case CURLOPT_CONNECTTIMEOUT_MS then
-		case CURLOPT_COOKIESESSION then
-		case CURLOPT_CRLF then
-		case CURLOPT_DIRLISTONLY then
-		case CURLOPT_DNS_CACHE_TIMEOUT then
-		case CURLOPT_DNS_USE_GLOBAL_CACHE then
-		case CURLOPT_EXPECT_100_TIMEOUT_MS then
-		case CURLOPT_FAILONERROR then
-		case CURLOPT_FILETIME then
-		case CURLOPT_FOLLOWLOCATION then
-		case CURLOPT_FORBID_REUSE then
-		case CURLOPT_FRESH_CONNECT then
-		case CURLOPT_FTP_CREATE_MISSING_DIRS then
-		case CURLOPT_FTP_FILEMETHOD then
-		case CURLOPT_FTP_RESPONSE_TIMEOUT then
-		case CURLOPT_FTP_SKIP_PASV_IP then
-		case CURLOPT_FTP_SSL_CCC then
-		case CURLOPT_FTP_USE_EPRT then
-		case CURLOPT_FTP_USE_EPSV then
-		case CURLOPT_FTP_USE_PRET then
-		case CURLOPT_FTPSSLAUTH then
-		case CURLOPT_GSSAPI_DELEGATION then
-		case CURLOPT_HEADER then
-		case CURLOPT_HEADEROPT then
-		case CURLOPT_HTTP_CONTENT_DECODING then
-		case CURLOPT_HTTP_TRANSFER_DECODING then
-		case CURLOPT_HTTP_VERSION then
-		case CURLOPT_HTTPAUTH then
-		case CURLOPT_HTTPGET then
-		case CURLOPT_HTTPPROXYTUNNEL then
-		case CURLOPT_IGNORE_CONTENT_LENGTH then
-		case CURLOPT_INFILESIZE then
-		case CURLOPT_IPRESOLVE then
-		case CURLOPT_LOCALPORT then
-		case CURLOPT_LOCALPORTRANGE then
-		case CURLOPT_LOW_SPEED_LIMIT then
-		case CURLOPT_LOW_SPEED_TIME then
-		case CURLOPT_MAXCONNECTS then
-		case CURLOPT_MAXFILESIZE then
-		case CURLOPT_MAXREDIRS then
-		case CURLOPT_NETRC then
-		case CURLOPT_NEW_DIRECTORY_PERMS then
-		case CURLOPT_NEW_FILE_PERMS then
-		case CURLOPT_NOBODY then
-		case CURLOPT_NOPROGRESS then
-		case CURLOPT_NOSIGNAL then
-		case CURLOPT_PATH_AS_IS then
-		case CURLOPT_PIPEWAIT then
-		case CURLOPT_PORT then
-		case CURLOPT_POST then
-		case CURLOPT_POSTFIELDSIZE then
-		case CURLOPT_POSTREDIR then
-		case CURLOPT_PROTOCOLS then
-		case CURLOPT_PROXY_TRANSFER_MODE then
-		case CURLOPT_PROXYAUTH then
-		case CURLOPT_PROXYPORT then
-		case CURLOPT_PROXYTYPE then
-		case CURLOPT_PUT then
-		case CURLOPT_REDIR_PROTOCOLS then
-		case CURLOPT_RESUME_FROM then
-		case CURLOPT_RTSP_CLIENT_CSEQ then
-		case CURLOPT_RTSP_REQUEST then
-		case CURLOPT_RTSP_SERVER_CSEQ then
-		case CURLOPT_SASL_IR then
-		case CURLOPT_SOCKS5_GSSAPI_NEC then
-		case CURLOPT_SSH_AUTH_TYPES then
-		case CURLOPT_SSL_ENABLE_ALPN then
-		case CURLOPT_SSL_ENABLE_NPN then
-		case CURLOPT_SSL_FALSESTART then
-		case CURLOPT_SSL_OPTIONS then
-		case CURLOPT_SSL_SESSIONID_CACHE then
-		case CURLOPT_SSL_VERIFYHOST then
-		case CURLOPT_SSL_VERIFYPEER then
-		case CURLOPT_SSL_VERIFYSTATUS then
-		case CURLOPT_SSLENGINE_DEFAULT then
-		case CURLOPT_SSLVERSION then
-		case CURLOPT_STREAM_WEIGHT then
-		case CURLOPT_TCP_FASTOPEN then
-		case CURLOPT_TCP_KEEPALIVE then
-		case CURLOPT_TCP_KEEPIDLE then
-		case CURLOPT_TCP_KEEPINTVL then
-		case CURLOPT_TCP_NODELAY then
-		case CURLOPT_TFTP_BLKSIZE then
-		case CURLOPT_TFTP_NO_OPTIONS then
-		case CURLOPT_TIMECONDITION then
-		case CURLOPT_TIMEOUT then
-		case CURLOPT_TIMEOUT_MS then
-		case CURLOPT_TIMEVALUE then
-		case CURLOPT_TRANSFER_ENCODING then
-		case CURLOPT_TRANSFERTEXT then
-		case CURLOPT_UNRESTRICTED_AUTH then
-		case CURLOPT_UPLOAD then
-		case CURLOPT_USE_SSL then
-		case CURLOPT_VERBOSE then
-		case CURLOPT_WILDCARDMATCH then
-			-- long
-			code = c_func( _curl_easy_setopt, {curl,option,param} )
-			break
-
-		case CURLOPT_HTTPPOST then
-			-- struct curl_httppost *
-			code = c_func( _curl_easy_setopt, {curl,option,param} )
-			break
-
-		case CURLOPT_CONNECT_TO then
-		case CURLOPT_HTTP200ALIASES then
-		case CURLOPT_HTTPHEADER then
-		case CURLOPT_MAIL_RCPT then
-		case CURLOPT_POSTQUOTE then
-		case CURLOPT_PROXYHEADER then
-		case CURLOPT_QUOTE then
-		case CURLOPT_RESOLVE then
-		case CURLOPT_TELNETOPTIONS then
-			-- struct curl_slist *
-			curl_options_list = curl_slist_append( curl_options_list, param )
-			code = c_func( _curl_easy_setopt, {curl,option,curl_options_list} )
-			break
-
-		case CURLOPT_CHUNK_DATA then
-		case CURLOPT_CLOSESOCKETDATA then
-		case CURLOPT_DEBUGDATA then
-		case CURLOPT_FNMATCH_DATA then
-		case CURLOPT_HEADERDATA then
-		case CURLOPT_INTERLEAVEDATA then
-		case CURLOPT_IOCTLDATA then
-		case CURLOPT_OPENSOCKETDATA then
-		case CURLOPT_PRIVATE then
-		case CURLOPT_PROGRESSDATA then
-		case CURLOPT_READDATA then
-		case CURLOPT_SEEKDATA then
-		case CURLOPT_SOCKOPTDATA then
-		case CURLOPT_SSH_KEYDATA then
-		case CURLOPT_SSL_CTX_DATA then
-		case CURLOPT_WRITEDATA then
-		case CURLOPT_XFERINFODATA then
-			-- void *
-			code = c_func( _curl_easy_setopt, {curl,option,param} )
-			break
-
-	end switch
-
-	if code != CURLE_OK then
-
-		object o = vlookup(option, SETOPT_OPTIONS, 1, 2, {} )
-
-		if atom(o) then
-			printf( 2, "cURL: unknown option '%d'\n", {option} )
-		else
-			printf( 2, "cURL: failed to set option '%s'\n", {o} )
-		end if
-
+	if cleanup = AUTO then
+		cleanup = ( find(option, curlopt_auto_cleanup) != 0 )
 	end if
 
-end procedure
+	if sequence( param ) then
+		param = allocate_string( param, cleanup )
+	end if
 
+	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
+end function
+
+/*
+ * NAME curl_easy_setopt_blob()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt_blob( atom curl, integer option, atom blob_data, atom blob_len, atom blob_flags = CURL_BLOB_NOCOPY )
+
+	atom param = allocate_data( SIZEOF_CURL_BLOB )
+	poke_pointer( param + curl_blob__data,  blob_data )
+	poke_pointer( param + curl_blob__len,   blob_len )
+	poke_pointer( param + curl_blob__flags, blob_flags )
+
+	integer result = c_func( _curl_easy_setopt_ptr, {curl,option,param} )
+
+	free( param )
+
+	return result
+end function
+
+/*
+ * NAME curl_easy_perform()
+ *
+ * DESCRIPTION
+ *
+ */
 public function curl_easy_perform( atom curl )
 	return c_func( _curl_easy_perform, {curl} )
 end function
 
+/*
+ * NAME curl_easy_cleanup()
+ *
+ * DESCRIPTION
+ *
+ */
 public procedure curl_easy_cleanup( atom curl )
 	c_proc( _curl_easy_cleanup, {curl} )
 end procedure
 
-public function curl_easy_getinfo( atom curl, integer option )
+/*
+ * NAME curl_easy_getinfo()
+ *
+ * DESCRIPTION
+ *
+ * Request internal information from the curl session with this function.  The
+ * third argument MUST be a pointer to a long, a pointer to a char * or a
+ * pointer to a double (as the documentation describes elsewhere).  The data
+ * pointed to will be filled in accordingly and can be relied upon only if the
+ * function returns CURLE_OK.  This function is intended to get used *AFTER* a
+ * performed transfer, all results from this function are undefined until the
+ * transfer is completed.
+ */
 
-	atom param = NULL
-	object res = -1
+/*
+ * NAME curl_easy_getinfo_string()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_getinfo_string( atom curl, integer option )
 
-	switch option with fallthru do
+	atom param = allocate_data( sizeof(C_POINTER), TRUE )
+	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
+	
+	if result = CURLE_OK then
 
-		case CURLINFO_APPCONNECT_TIME then
-		case CURLINFO_CONNECT_TIME then
-		case CURLINFO_CONTENT_LENGTH_DOWNLOAD then
-		case CURLINFO_CONTENT_LENGTH_UPLOAD then
-		case CURLINFO_NAMELOOKUP_TIME then
-		case CURLINFO_PRETRANSFER_TIME then
-		case CURLINFO_REDIRECT_TIME then
-		case CURLINFO_SIZE_DOWNLOAD then
-		case CURLINFO_SIZE_UPLOAD then
-		case CURLINFO_SPEED_DOWNLOAD then
-		case CURLINFO_SPEED_UPLOAD then
-		case CURLINFO_STARTTRANSFER_TIME then
-		case CURLINFO_TOTAL_TIME then
-			-- DOUBLE
-			param = allocate_data( sizeof(C_DOUBLE) )
-			break
+		atom ptr = peek_pointer( param )
+		sequence string = ""
 
-		case CURLINFO_CONDITION_UNMET then
-		case CURLINFO_FILETIME then
-		case CURLINFO_HEADER_SIZE then
-		case CURLINFO_HTTP_CONNECTCODE then
-		case CURLINFO_HTTP_VERSION then
-		case CURLINFO_HTTPAUTH_AVAIL then
-		case CURLINFO_LASTSOCKET then
-		case CURLINFO_LOCAL_PORT then
-		case CURLINFO_NUM_CONNECTS then
-		case CURLINFO_OS_ERRNO then
-		case CURLINFO_PRIMARY_PORT then
-		case CURLINFO_PROXYAUTH_AVAIL then
-		case CURLINFO_REDIRECT_COUNT then
-		case CURLINFO_REQUEST_SIZE then
-		case CURLINFO_RESPONSE_CODE then
-		case CURLINFO_RTSP_CLIENT_CSEQ then
-		case CURLINFO_RTSP_CSEQ_RECV then
-		case CURLINFO_RTSP_SERVER_CSEQ then
-		case CURLINFO_SSL_VERIFYRESULT then
-			-- LONG
-			param = allocate_data( sizeof(C_LONG) )
-			break
-
-		case CURLINFO_CERTINFO then
-		case CURLINFO_COOKIELIST then
-		case CURLINFO_SSL_ENGINES then
-		case CURLINFO_TLS_SESSION then
-		case CURLINFO_TLS_SSL_PTR then
-			-- SLIST
-		    param = curl_slist_append( NULL, "" )
-			break
-
-		case CURLINFO_ACTIVESOCKET then
-			-- SOCKET
-		    param = allocate_data( sizeof(C_INT) )
-			break
-
-		case CURLINFO_CONTENT_TYPE then
-		case CURLINFO_EFFECTIVE_URL then
-		case CURLINFO_FTP_ENTRY_PATH then
-		case CURLINFO_LOCAL_IP then
-		case CURLINFO_PRIMARY_IP then
-		case CURLINFO_PRIVATE then
-		case CURLINFO_REDIRECT_URL then
-		case CURLINFO_RTSP_SESSION_ID then
-			-- STRING
-			param = allocate_string( "" )
-			break
-
-	end switch
-
-	integer ret = c_func( _curl_easy_getinfo, {curl,option,param} )
-
-	if ret = CURLE_UNKNOWN_OPTION then
-
-		object o = vlookup(option, GETINFO_OPTIONS, 1, 2, {} )
-
-		if atom(o) then
-			printf( 2, "cURL: unknown option '%d'\n", {option} )
-		else
-			printf( 2, "cURL: unknown option '%s'\n", {o} )
+		if ptr != NULL then
+			string = peek_string( ptr )
 		end if
 
-		return res
-
+		return string
 	end if
 
-	switch option with fallthru do
-
-		case CURLINFO_CONTENT_TYPE then
-		case CURLINFO_EFFECTIVE_URL then
-		case CURLINFO_FTP_ENTRY_PATH then
-		case CURLINFO_LOCAL_IP then
-		case CURLINFO_PRIMARY_IP then
-		case CURLINFO_PRIVATE then
-		case CURLINFO_REDIRECT_URL then
-		case CURLINFO_RTSP_SESSION_ID then
-			-- char **
-
-			if ret = CURLE_OK then
-				res = peek_string( peek_pointer(param) )
-			end if
-
-			machine:free( param )
-
-		case CURLINFO_ACTIVESOCKET then
-			-- curl_socket_t *
-
-			if ret = CURLE_OK then
-				res = peek_pointer( param )
-			end if
-
-			machine:free( param )
-
-		case CURLINFO_APPCONNECT_TIME then
-		case CURLINFO_CONNECT_TIME then
-		case CURLINFO_CONTENT_LENGTH_DOWNLOAD then
-		case CURLINFO_CONTENT_LENGTH_UPLOAD then
-		case CURLINFO_NAMELOOKUP_TIME then
-		case CURLINFO_PRETRANSFER_TIME then
-		case CURLINFO_REDIRECT_TIME then
-		case CURLINFO_SIZE_DOWNLOAD then
-		case CURLINFO_SIZE_UPLOAD then
-		case CURLINFO_SPEED_DOWNLOAD then
-		case CURLINFO_SPEED_UPLOAD then
-		case CURLINFO_STARTTRANSFER_TIME then
-		case CURLINFO_TOTAL_TIME then
-			-- double *
-
-			if ret = CURLE_OK then
-				res = float64_to_atom(peek({ param, 8 }))  -- peek8s(param)
-			end if
-
-			machine:free( param )
-
-		case CURLINFO_CONDITION_UNMET then
-		case CURLINFO_FILETIME then
-		case CURLINFO_HEADER_SIZE then
-		case CURLINFO_HTTP_CONNECTCODE then
-		case CURLINFO_HTTP_VERSION then
-		case CURLINFO_HTTPAUTH_AVAIL then
-		case CURLINFO_LASTSOCKET then
-		case CURLINFO_LOCAL_PORT then
-		case CURLINFO_NUM_CONNECTS then
-		case CURLINFO_OS_ERRNO then
-		case CURLINFO_PRIMARY_PORT then
-		case CURLINFO_PROXYAUTH_AVAIL then
-		case CURLINFO_REDIRECT_COUNT then
-		case CURLINFO_REQUEST_SIZE then
-		case CURLINFO_RESPONSE_CODE then
-		case CURLINFO_RTSP_CLIENT_CSEQ then
-		case CURLINFO_RTSP_CSEQ_RECV then
-		case CURLINFO_RTSP_SERVER_CSEQ then
-		case CURLINFO_SSL_VERIFYRESULT then
-			-- long *
-
-			if ret = CURLE_OK then
-				res = peek4s( param )
-			end if
-
-			machine:free( param )
-
-		case CURLINFO_CERTINFO then
-			-- struct curl_certinfo *
-
-			if ret = CURLE_OK then
-
-				object o = peek_pointer({ peek_pointer(param), 2 })
-
-				if o[2] then
-					res = peek_curl_slist( peek_pointer(o[2]), -1 )
-					curl_slist_free_all( param )
-				end if
-
-			end if
-
-		case CURLINFO_COOKIELIST then
-		case CURLINFO_SSL_ENGINES then
-			-- struct curl_slist **
-
-			if ret = CURLE_OK then
-				res = peek_curl_slist( peek_pointer(param), -1 )
-			end if
-
-			curl_slist_free_all( param )
-
-		case CURLINFO_TLS_SESSION then
-		case CURLINFO_TLS_SSL_PTR then
-			-- struct curl_tlssessioninfo **
-
-			if ret = CURLE_OK then
-				res = peek_curl_slist( peek_pointer(param), -1 )
-			end if
-
-			curl_slist_free_all( param )
-
-	end switch
-
-	return res
+	return NULL
 end function
 
+/*
+ * NAME curl_easy_getinfo_long()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_getinfo_long( atom curl, integer option )
+
+	atom param = allocate_data( sizeof(C_LONG), TRUE )
+	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
+	
+	if result = CURLE_OK then
+		return peek4s( param )
+	end if
+
+	return NULL
+end function
+
+/*
+ * NAME curl_easy_getinfo_double()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_getinfo_double( atom curl, integer option )
+
+	atom param = allocate_data( sizeof(C_DOUBLE), TRUE )
+	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
+	
+	if result = CURLE_OK then
+		sequence bytes = peek({ param, sizeof(C_DOUBLE) })
+		return float64_to_atom( bytes )
+	end if
+
+	return NULL
+end function
+
+/*
+ * NAME curl_easy_getinfo_slist()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_getinfo_slist( atom curl, integer option )
+
+	atom param = allocate_data( sizeof(C_POINTER), TRUE )
+	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
+	
+	if result = CURLE_OK then
+		atom slist = peek_pointer( param )
+		return curl_slist_values( slist )
+	end if
+
+	return NULL
+end function
+
+/*
+ * NAME curl_easy_getinfo_off_t()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_getinfo_off_t( atom curl, integer option )
+
+	atom param = allocate_data( sizeof(C_LONGLONG), TRUE )
+	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
+	
+	if result = CURLE_OK then
+		return peek8s( param )
+	end if
+
+	return NULL
+end function
+
+/*
+ * NAME curl_easy_duphandle()
+ *
+ * DESCRIPTION
+ *
+ * Creates a new curl session handle with the same options set for the handle
+ * passed in. Duplicating a handle could only be a matter of cloning data and
+ * options, internal state info and things like persistent connections cannot
+ * be transferred. It is useful in multithreaded applications when you can run
+ * curl_easy_duphandle() for each new thread to avoid a series of identical
+ * curl_easy_setopt() invokes in every thread.
+ */
 public function curl_easy_duphandle( atom curl )
 	return c_func( _curl_easy_duphandle, {curl} )
 end function
 
+/*
+ * NAME curl_easy_reset()
+ *
+ * DESCRIPTION
+ *
+ * Re-initializes a CURL handle to the default values. This puts back the
+ * handle to the same state as it was in when it was just created.
+ *
+ * It does keep: live connections, the Session ID cache, the DNS cache and the
+ * cookies.
+ */
 public procedure curl_easy_reset( atom curl )
 	c_proc( _curl_easy_reset, {curl} )
 end procedure
 
-public function curl_easy_recv( atom curl, atom buffer, integer buflen )
+/*
+ * NAME curl_easy_recv()
+ *
+ * DESCRIPTION
+ *
+ * Receives data from the connected socket. Use after successful
+ * curl_easy_perform() with CURLOPT_CONNECT_ONLY option.
+ */
+public function curl_easy_recv( atom curl, integer buflen )
 
-	atom addr = allocate_data( sizeof(C_INT), 1 )
-	atom ret = c_func( _curl_easy_recv, {curl,buffer,buflen,addr} )
-	atom len = peek4s( addr )
+	atom buffer = allocate_data( buflen, TRUE )
+	atom lenaddr = allocate_data( sizeof(C_SIZE_T), TRUE )
 
-	return {ret,buffer,len}
+	atom result = c_func( _curl_easy_recv, {curl,buffer,buflen,lenaddr} )
+
+	if result = CURLE_OK then
+		atom len = peek_pointer( lenaddr )
+		return peek({ buffer, len })
+	end if
+
+	return result
 end function
 
-public function curl_easy_send(atom curl, atom buffer, integer buflen)
+/*
+ * NAME curl_easy_send()
+ *
+ * DESCRIPTION
+ *
+ * Sends data over the connected socket. Use after successful
+ * curl_easy_perform() with CURLOPT_CONNECT_ONLY option.
+ */
+public function curl_easy_send( atom curl, sequence data )
 
-	atom addr = allocate_data( sizeof(C_INT), 1 )
-	atom ret = c_func( _curl_easy_send, {curl,buffer,buflen,addr} )
-	atom len = peek4s( addr )
+	integer buflen = length( data )
+	atom buffer = allocate_data( buflen, TRUE )
+	atom lenaddr = allocate_data( sizeof(C_SIZE_T), TRUE )
 
-  return {ret,len}
+	poke( buffer, data )
+
+	atom result = c_func( _curl_easy_send, {curl,buffer,buflen,lenaddr} )
+	
+	if result = CURLE_OK then
+		return peek_pointer( lenaddr )
+	end if
+
+	return 0
 end function
 
