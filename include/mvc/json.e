@@ -563,17 +563,34 @@ public function json_compare( sequence json_a, sequence json_b )
     return result
 end function
 
-public function json_fetch( object json_object, sequence keys )
+public function json_append( object json_target, object json_object )
+
+    switch json_target[J_TYPE] do
+
+        case JSON_NUMBER, JSON_PRIMITIVE then
+            json_target[J_VALUE] = {json_target} & {json_object}
+            json_target[J_TYPE] = JSON_ARRAY
+
+        case JSON_OBJECT, JSON_ARRAY, JSON_STRING then
+            json_target[J_VALUE] = json_target[J_VALUE] & json_object[J_VALUE]
+
+    end switch
+
+    return json_target
+end function
+
+public function json_haskey( object json_object, sequence keys, object sep = '.' )
 
     if string( keys ) then
-        keys = stdseq:split( keys, '.' )
+        keys = stdseq:split( keys, sep )
     end if
 
     integer i = 1
+    integer found = 0
 
     while json_object[J_TYPE] = JSON_OBJECT and i <= length( keys ) do
 
-        integer found = 0
+        found = 0
 
         for j = 1 to length( json_object[J_VALUE] ) do
 
@@ -588,6 +605,67 @@ public function json_fetch( object json_object, sequence keys )
         if found = 0 then
             json_object = {JSON_NONE,0}
             exit
+        end if
+
+        i += 1
+    end while
+
+    return (found != 0)
+end function
+
+public function json_fetch( object json_object, sequence keys, object sep = '.' )
+
+    if string( keys ) then
+        keys = stdseq:split( keys, sep )
+    end if
+
+    integer i = 1
+    integer found = 0
+
+    while json_object[J_TYPE] = JSON_OBJECT and i <= length( keys ) do
+
+        found = 0
+
+        for j = 1 to length( json_object[J_VALUE] ) do
+
+            if equal( json_object[J_VALUE][j][1], keys[i] ) then
+                found = j
+                json_object = json_object[J_VALUE][j][2]
+                exit
+            end if
+
+        end for
+
+        if found = 0 then
+            json_object = {JSON_NONE,0}
+            exit
+        end if
+
+        i += 1
+    end while
+
+    return json_object
+end function
+
+public function json_remove( object json_object, sequence keys, object sep = '.' )
+
+    if string( keys ) then
+        keys = stdseq:split( keys, sep )
+    end if
+
+    integer i = 1
+
+    while json_object[J_TYPE] = JSON_OBJECT and i < length( json_object[J_VALUE] ) do
+
+        if equal( json_object[J_VALUE][i][1], keys[1] ) then
+
+            if length( keys ) = 1 then
+                json_object[J_VALUE] = remove( json_object[J_VALUE], i )
+                continue
+            else
+                json_object[J_VALUE][i][2] = json_remove( json_object[J_VALUE][i][2], keys[2..$] )
+            end if
+
         end if
 
         i += 1
