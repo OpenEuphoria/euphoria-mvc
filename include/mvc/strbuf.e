@@ -115,7 +115,7 @@ end function
 -- * If 'len' is less than the available buffer, only the remaining bytes will
 --   be read.
 --
-public function strbuf_read( atom strbuf, atom buffer = NULL, integer len = 0 )
+public function strbuf_read( atom strbuf, integer len = 0, atom buffer = NULL )
 
 	if strbuf != NULL then
 
@@ -148,7 +148,7 @@ public function strbuf_read( atom strbuf, atom buffer = NULL, integer len = 0 )
 end function
 
 --
--- Write from the current position.
+-- Write from the current position and advance the position by the length written.
 --
 -- * If 'data' is a sequence, poke the sequence of bytes into memory.
 -- * If 'data' is an atom, copy 'len' bytes from that memory address.
@@ -270,6 +270,25 @@ public function strbuf_size( atom strbuf )
 end function
 
 --
+-- Move the current position of the buffer.
+--
+public function strbuf_seek( atom strbuf, atom offset )
+
+	if strbuf != NULL then
+
+		atom curlen = peek4u( strbuf + strbuf__curlen )
+
+		if 0 <= offset and offset <= curlen then
+			poke4( strbuf + strbuf__offset, offset )
+			return TRUE
+		end if
+
+	end if
+
+	return FALSE
+end function
+
+--
 -- Return the current read/write position of the buffer.
 --
 public function strbuf_where( atom strbuf )
@@ -311,18 +330,20 @@ constant CURL_READFUNC_ABORT = #10000000
 -- libcurl to read from the beginning. You can use strbuf_append() to write data
 -- without advancing the position.
 --
+-- <code>
 -- atom strbuf = strbuf_init()
 -- strbuf_append( strbuf, "This is the string data I want libcurl to use." )
 --
--- curl_easy_setopt_func( curl, CURLOPT_READFUNCTION, STRBUF_READ_FUNC )
--- curl_easy_setopt_cbptr( curl, CURLOPT_READDATA, strbuf )
+-- curl_easy_setopt( curl, CURLOPT_READFUNCTION, STRBUF_READ_FUNC )
+-- curl_easy_setopt( curl, CURLOPT_READDATA, strbuf )
 --
 -- strbuf_free( strbuf )
+-- </code>
 --
 function strbuf_read_func( atom ptr, atom size, atom nitems, atom strbuf )
 
 	if ptr and size and nitems and strbuf then
-		return strbuf_read( strbuf, ptr, size*nitems )
+		return strbuf_read( strbuf, size*nitems, ptr )
 	end if
 
 	return CURL_READFUNC_ABORT
@@ -337,14 +358,16 @@ public constant STRBUF_READ_FUNC = strbuf_read_func_cb
 -- A special function for writing data with libcurl. A write function is used
 -- when you want to receive data *from* libcurl.
 --
+-- <code>
 -- atom strbuf = strbuf_init()
 --
--- curl_easy_setopt_func( curl, CURLOPT_WRITEFUNCTION, STRBUF_WRITE_FUNC )
--- curl_easy_setopt_cbptr( curl, CURLOPT_WRITEDATA, strbuf )
+-- curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, STRBUF_WRITE_FUNC )
+-- curl_easy_setopt( curl, CURLOPT_WRITEDATA, strbuf )
 --
 -- sequence data = strbuf_value( strbuf )
 --
 -- strbuf_free( strbuf )
+-- </code>
 --
 function strbuf_write_func( atom ptr, atom size, atom nmemb, atom strbuf )
 
