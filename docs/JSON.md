@@ -51,13 +51,32 @@ If a value cannot be parsed, the returned value will be `{JSON_NONE,0}`. You can
 
 ## Parser routines
 
+* [`json_append`](#json_append)
 * [`json_compare`](#json_compare)
 * [`json_fetch`](#json_fetch)
+* [`json_haskey`](#json_haskey)
 * [`json_markup`](#json_markup)
 * [`json_parse`](#json_parse)
 * [`json_parse_file`](#json_parse_file)
 * [`json_print`](#json_print)
+* [`json_remove`](#json_remove)
 * [`json_sprint`](#json_sprint)
+
+### json_append
+
+`include mvc/json.e`  
+`public function json_append( object json_target, object json_object )`
+
+Appends one JSON value onto another. Objects of type `JSON_NUMBER` or `JSON_PRIMITIVE` will be converted to `JSON_ARRAY`. Objects of type `JSON_ARRAY` or `JSON_STRING` will be concatenated together. Objects of type `JSON_OBJECT` will have the key/value pairs from **json_object** simply appended to the end of **json_target**. Absolutely no checking for duplicate keys is done at this time.
+
+**Parameters**
+
+- **`json_target`** - the object being appended to
+- **`json_object`** - the object whose values will be appended to **json_target**
+
+**Returns**
+
+- The updated version of **json_target** with the values from **json_object** appended to it.
 
 ### json_compare
 
@@ -80,18 +99,36 @@ Performs a "deep" comparison of two parsed JSON values. This will decend into ke
 ### json_fetch
 
 `include mvc/json.e`  
-`public function json_fetch( object json_object, sequence keys )`
+`public function json_fetch( object json_object, sequence keys, object sep = '.' )`
 
 Fetches a nested value from inside JSON object using the provided keys.
 
 **Parameters**
 
 - **`json_object`** - a value returned from `json_parse`
-- **`keys`** - either a string of keys separated by dots (e.g. `"user.name"`) or a sequence of keys (e.g. `{"user","name"}`)
+- **`keys`** - a string of keys separated by **sep** (e.g. `"user.name"`) or a sequence of keys (e.g. `{"user","name"}`)
+- **`sep`** - a string or character to act as a separator for **keys**
 
 **Returns**
 
 The requeted value. See `json_parse` for possible return values and types.
+
+### json_haskey
+
+`include mvc/json.e`  
+`public function json_haskey( object json_object, sequence keys, object sep = '.' )`
+
+Returns `TRUE` if the value of **keys** exists in **json_object**.
+
+**Parameters**
+
+- **`json_object`** - the object whose keys will be searched (this should be a `JSON_OBJECT` value)
+- **`keys`** - a string of keys separated by **sep** (e.g. `"user.name"`) or a sequence of keys (e.g. `{"user","name"}`)
+- **`sep`** - a string or character to act as a separator for **keys**
+
+**Returns**
+
+Returns `TRUE` if the key or nested key path exists in the **json_object**.
 
 ### json_markup
 
@@ -170,6 +207,23 @@ Writes a parsed JSON value from `json_parse` to a file in its native structure. 
 - **`white_space`** - if `TRUE`, insert white space to "pretty print" data
 - **`indent_width`** - number of spaces to indent when printing white space
 - **`start_column`** - number of spaces to indent the entire output
+
+### json_remove
+
+`include mvc/json.e`  
+`public function json_remove( object json_object, sequence keys, object sep = '.' )`
+
+Removes a nested value from inside JSON object using the provided keys.
+
+**Parameters**
+
+- **`json_object`** - the object whose keys will be searched (this should be a `JSON_OBJECT` value)
+- **`keys`** - a string of keys separated by **sep** (e.g. `"user.name"`) or a sequence of keys (e.g. `{"user","name"}`)
+- **`sep`** - a string or character to act as a separator for **keys**
+
+**Returns**
+
+The updated **json_object** with the value of **keys** removed.
 
 ### json_sprint
 
