@@ -799,7 +799,6 @@ end type
 constant CURLOPT_MAXVALUES = 300
 
 sequence curlopt_names = repeat( 0, CURLOPT_MAXVALUES )
---sequence curlopt_values = repeat( 0, CURLOPT_MAXVALUES )
 
 export function curlopt_name( integer opt )
 	integer t = floor(opt / 10000)
@@ -807,18 +806,8 @@ export function curlopt_name( integer opt )
 	return curlopt_names[nu]
 end function
 
---export function curlopt_value( integer opt )
---	integer t = floor(opt / 10000)
---	integer nu = opt - t * 10000
---	return curlopt_values[nu]
---end function
-
 function CURLOPT( sequence na, integer t, integer nu )
-
 	curlopt_names[nu] = na
---	curlopt_values[nu] = t + nu
-
---	return curlopt_values[nu]
 	return t + nu
 end function
 
@@ -1833,7 +1822,7 @@ public constant
 $
 
 public type CURLoption( integer x )
-	return curlopt_value( x ) != 0
+	return (0 < x) and (x < CURLOPT_LASTENTRY)
 end type
 
 ifdef not CURL_NO_OLDIES then /* define this to test if your app builds with all
