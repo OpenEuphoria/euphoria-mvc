@@ -10,15 +10,15 @@ constant TRUE = 1
 constant FALSE = 0
 
 ifdef LINUX then
-	atom libcurl = open_dll( "libcurl.so.4" )
+	export atom libcurl = open_dll( "libcurl.so.4" )
 
 elsifdef WINDOWS then
 
 	ifdef BITS64 then
-	atom libcurl = open_dll({ "libcurl-x64.dll", "libcurl.dll" })
+	export atom libcurl = open_dll({ "libcurl-x64.dll", "libcurl.dll" })
 
 	elsedef
-	atom libcurl = open_dll( "libcurl.dll" )
+	export atom libcurl = open_dll( "libcurl.dll" )
 
 	end ifdef
 
@@ -27,9 +27,9 @@ elsedef
 
 end ifdef
 
-constant C_OFF_T = C_LONGLONG
-constant C_STRING = C_POINTER
-constant C_TIME_T = C_INT
+export constant C_OFF_T = C_LONGLONG
+export constant C_STRING = C_POINTER
+export constant C_TIME_T = C_INT
 
 export constant
 	_curl_strequal          = define_c_func( libcurl, "+curl_strequal", {C_POINTER,C_POINTER}, C_INT ),
@@ -69,18 +69,6 @@ export constant
 	_curl_easy_strerror     = define_c_func( libcurl, "+curl_easy_strerror", {C_INT}, C_STRING ),
 	_curl_share_strerror    = define_c_func( libcurl, "+curl_share_strerror", {C_INT}, C_STRING ),
 	_curl_easy_pause        = define_c_func( libcurl, "+curl_easy_pause", {C_POINTER, C_INT}, C_INT ),
-	_curl_easy_init         = define_c_func( libcurl, "+curl_easy_init", {},C_POINTER ),
---	_curl_easy_setopt       = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_POINTER}, C_INT ),
-	_curl_easy_setopt_long  = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_LONG}, C_INT ),
-	_curl_easy_setopt_ptr   = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_POINTER}, C_INT ),
-	_curl_easy_setopt_off_t = define_c_func( libcurl, "+curl_easy_setopt", {C_POINTER,C_INT,C_OFF_T}, C_INT ),
-	_curl_easy_perform      = define_c_func( libcurl, "+curl_easy_perform", {C_POINTER}, C_INT ),
-	_curl_easy_cleanup      = define_c_proc( libcurl, "+curl_easy_cleanup", {C_POINTER} ),
-	_curl_easy_getinfo      = define_c_func( libcurl, "+curl_easy_getinfo", {C_POINTER,C_INT,C_POINTER}, C_INT ),
-	_curl_easy_duphandle    = define_c_func( libcurl, "+curl_easy_duphandle", {C_POINTER}, C_POINTER ),
-	_curl_easy_reset        = define_c_proc( libcurl, "+curl_easy_reset", {C_POINTER} ),
-	_curl_easy_recv         = define_c_func( libcurl, "+curl_easy_recv", {C_POINTER,C_POINTER,C_SIZE_T,C_POINTER}, C_INT ),
-	_curl_easy_send         = define_c_func( libcurl, "+curl_easy_send", {C_POINTER,C_POINTER,C_SIZE_T,C_POINTER}, C_INT ),
 $
 
 /* enum for the different supported SSL backends */
@@ -584,7 +572,7 @@ end type
 
 /* this is the set of return values expected from the curl_sshkeycallback
    callback */
-public enum type curl_khstat 
+public enum type curl_khstat
 	CURLKHSTAT_FINE_ADD_TO_FILE = 0,
 	CURLKHSTAT_FINE,
 	CURLKHSTAT_REJECT, /* reject the connection, return an error */
@@ -595,7 +583,7 @@ public enum type curl_khstat
   	CURLKHSTAT_LAST    /* not for use, only a marker for last-in-list */
 end type
 
-public enum type curl_khmatch 
+public enum type curl_khmatch
 	CURLKHMATCH_OK = 0, /* match */
 	CURLKHMATCH_MISMATCH, /* host found, key mismatch! */
   	CURLKHMATCH_MISSING,  /* no matching host/key found */
@@ -811,26 +799,27 @@ end type
 constant CURLOPT_MAXVALUES = 300
 
 sequence curlopt_names = repeat( 0, CURLOPT_MAXVALUES )
-sequence curlopt_values = repeat( 0, CURLOPT_MAXVALUES )
+--sequence curlopt_values = repeat( 0, CURLOPT_MAXVALUES )
 
-function curlopt_name( integer opt )
+export function curlopt_name( integer opt )
 	integer t = floor(opt / 10000)
 	integer nu = opt - t * 10000
 	return curlopt_names[nu]
 end function
 
-function curlopt_value( integer opt )
-	integer t = floor(opt / 10000)
-	integer nu = opt - t * 10000
-	return curlopt_values[nu]
-end function
+--export function curlopt_value( integer opt )
+--	integer t = floor(opt / 10000)
+--	integer nu = opt - t * 10000
+--	return curlopt_values[nu]
+--end function
 
 function CURLOPT( sequence na, integer t, integer nu )
 
 	curlopt_names[nu] = na
-	curlopt_values[nu] = t + nu
+--	curlopt_values[nu] = t + nu
 
-	return curlopt_values[nu]
+--	return curlopt_values[nu]
+	return t + nu
 end function
 
 public constant
@@ -1971,7 +1960,7 @@ public constant
 	CURL_SSLVERSION_MAX_LAST    = 524288, -- (CURL_SSLVERSION_LAST    << 16)
 $
 
-public constant -- CURL_TLSAUTH 
+public constant -- CURL_TLSAUTH
 	CURL_TLSAUTH_NONE = 0,
 	CURL_TLSAUTH_SRP  = 1,
 	CURL_TLSAUTH_LAST = 2, /* never use, keep last */
@@ -2476,7 +2465,7 @@ end procedure
  */
 
 public function curl_global_sslset( atom id, object name = NULL, atom avail = NULL )
-	
+
 	if sequence( name ) then
 		name = allocate_string( name, TRUE )
 	end if
@@ -2522,7 +2511,7 @@ end ifdef
 public function curl_slist_append( atom slist, sequence string )
 
 	atom addr = allocate_string( string, TRUE )
-  
+
 	return c_func( _curl_slist_append, {slist,addr} )
 end function
 
@@ -2575,7 +2564,7 @@ end function
  * and should be set to NULL.
  */
 public function curl_getdate( sequence datestring, atom now = NULL )
-	
+
 	atom addr = allocate_string( datestring, TRUE )
 
 	return c_func( _curl_getdate, {addr,now} )
@@ -2592,7 +2581,6 @@ public constant
 	CURLINFO_TYPEMASK = #F00000,
 $
 
-/*
 public type curlinfo_string( integer x )
 	return and_bits( x, CURLINFO_TYPEMASK ) = CURLINFO_STRING
 end type
@@ -2612,7 +2600,77 @@ end type
 public type curlinfo_socket( integer x )
 	return and_bits( x, CURLINFO_TYPEMASK ) = CURLINFO_SOCKET
 end type
-*/
+
+public type curlinfo_off_t( integer x )
+	return and_bits( x, CURLINFO_TYPEMASK ) = CURLINFO_OFF_T
+end type
+
+sequence curlinfo_names = {
+	"CURLINFO_EFFECTIVE_URL",
+	"CURLINFO_RESPONSE_CODE",
+	"CURLINFO_TOTAL_TIME",
+	"CURLINFO_NAMELOOKUP_TIME",
+	"CURLINFO_CONNECT_TIME",
+	"CURLINFO_PRETRANSFER_TIME",
+	"CURLINFO_SIZE_UPLOAD",
+	"CURLINFO_SIZE_DOWNLOAD",
+	"CURLINFO_SPEED_DOWNLOAD",
+	"CURLINFO_SPEED_UPLOAD",
+	"CURLINFO_HEADER_SIZE",
+	"CURLINFO_REQUEST_SIZE",
+	"CURLINFO_SSL_VERIFYRESULT",
+	"CURLINFO_FILETIME",
+	"CURLINFO_CONTENT_LENGTH_DOWNLOAD",
+	"CURLINFO_CONTENT_LENGTH_UPLOAD",
+	"CURLINFO_STARTTRANSFER_TIME",
+	"CURLINFO_CONTENT_TYPE",
+	"CURLINFO_REDIRECT_TIME",
+	"CURLINFO_REDIRECT_COUNT",
+	"CURLINFO_PRIVATE",
+	"CURLINFO_HTTP_CONNECTCODE",
+	"CURLINFO_HTTPAUTH_AVAIL",
+	"CURLINFO_PROXYAUTH_AVAIL",
+	"CURLINFO_OS_ERRNO",
+	"CURLINFO_NUM_CONNECTS",
+	"CURLINFO_SSL_ENGINES",
+	"CURLINFO_COOKIELIST",
+	"CURLINFO_LASTSOCKET",
+	"CURLINFO_FTP_ENTRY_PATH",
+	"CURLINFO_REDIRECT_URL",
+	"CURLINFO_PRIMARY_IP",
+	"CURLINFO_APPCONNECT_TIME",
+	"CURLINFO_CERTINFO",
+	"CURLINFO_CONDITION_UNMET",
+	"CURLINFO_RTSP_SESSION_ID",
+	"CURLINFO_RTSP_CLIENT_CSEQ",
+	"CURLINFO_RTSP_SERVER_CSEQ",
+	"CURLINFO_RTSP_CSEQ_RECV",
+	"CURLINFO_PRIMARY_PORT",
+	"CURLINFO_LOCAL_IP",
+	"CURLINFO_LOCAL_PORT",
+	"CURLINFO_TLS_SESSION",
+	"CURLINFO_ACTIVESOCKET",
+	"CURLINFO_TLS_SSL_PTR",
+	"CURLINFO_HTTP_VERSION",
+	"CURLINFO_PROXY_SSL_VERIFYRESULT",
+	"CURLINFO_PROTOCOL",
+	"CURLINFO_SCHEME",
+	"CURLINFO_TOTAL_TIME_T",
+	"CURLINFO_NAMELOOKUP_TIME_T",
+	"CURLINFO_CONNECT_TIME_T",
+	"CURLINFO_PRETRANSFER_TIME_T",
+	"CURLINFO_STARTTRANSFER_TIME_T",
+	"CURLINFO_REDIRECT_TIME_T",
+	"CURLINFO_APPCONNECT_TIME_T",
+	"CURLINFO_RETRY_AFTER",
+	"CURLINFO_EFFECTIVE_METHOD",
+	"CURLINFO_PROXY_ERROR"
+}
+
+export function curlinfo_name( integer opt )
+	integer nu = and_bits(opt,CURLINFO_MASK)
+	return curlopt_names[nu]
+end function
 
 public enum type CURLINFO
 	CURLINFO_NONE                    =       0,
@@ -2662,19 +2720,19 @@ public enum type CURLINFO
 	CURLINFO_ACTIVESOCKET            = #50002C, -- CURLINFO_SOCKET + 44,
 	CURLINFO_TLS_SSL_PTR             = #40002D, -- CURLINFO_SLIST  + 45,
 	CURLINFO_HTTP_VERSION            = #20002E, -- CURLINFO_LONG   + 46,
-	CURLINFO_PROXY_SSL_VERIFYRESULT  = #20002F, -- CURLINFO_LONG + 47,
+	CURLINFO_PROXY_SSL_VERIFYRESULT  = #20002F, -- CURLINFO_LONG   + 47,
 	CURLINFO_PROTOCOL                = #200030, -- CURLINFO_LONG   + 48,
 	CURLINFO_SCHEME                  = #100031, -- CURLINFO_STRING + 49,
-	CURLINFO_TOTAL_TIME_T            = #600032, -- CURLINFO_OFF_T + 50,
-	CURLINFO_NAMELOOKUP_TIME_T       = #600033, -- CURLINFO_OFF_T + 51,
-	CURLINFO_CONNECT_TIME_T          = #600034, -- CURLINFO_OFF_T + 52,
-	CURLINFO_PRETRANSFER_TIME_T      = #600035, -- CURLINFO_OFF_T + 53,
-	CURLINFO_STARTTRANSFER_TIME_T    = #600036, -- CURLINFO_OFF_T + 54,
-	CURLINFO_REDIRECT_TIME_T         = #600037, -- CURLINFO_OFF_T + 55,
-	CURLINFO_APPCONNECT_TIME_T       = #600038, -- CURLINFO_OFF_T + 56,
-	CURLINFO_RETRY_AFTER             = #600039, -- CURLINFO_OFF_T + 57,
+	CURLINFO_TOTAL_TIME_T            = #600032, -- CURLINFO_OFF_T  + 50,
+	CURLINFO_NAMELOOKUP_TIME_T       = #600033, -- CURLINFO_OFF_T  + 51,
+	CURLINFO_CONNECT_TIME_T          = #600034, -- CURLINFO_OFF_T  + 52,
+	CURLINFO_PRETRANSFER_TIME_T      = #600035, -- CURLINFO_OFF_T  + 53,
+	CURLINFO_STARTTRANSFER_TIME_T    = #600036, -- CURLINFO_OFF_T  + 54,
+	CURLINFO_REDIRECT_TIME_T         = #600037, -- CURLINFO_OFF_T  + 55,
+	CURLINFO_APPCONNECT_TIME_T       = #600038, -- CURLINFO_OFF_T  + 56,
+	CURLINFO_RETRY_AFTER             = #600039, -- CURLINFO_OFF_T  + 57,
 	CURLINFO_EFFECTIVE_METHOD        = #10003A, -- CURLINFO_STRING + 58,
-	CURLINFO_PROXY_ERROR             = #20003B, -- CURLINFO_LONG + 59,
+	CURLINFO_PROXY_ERROR             = #20003B, -- CURLINFO_LONG   + 59,
 	CURLINFO_LASTONE                 =      59
 end type
 
@@ -2888,414 +2946,4 @@ public constant
 	CURLPAUSE_ALL       = 3, -- (CURLPAUSE_RECV|CURLPAUSE_SEND)
 	CURLPAUSE_CONT      = 0, -- (CURLPAUSE_RECV_CONT|CURLPAUSE_SEND_CONT)
 $
-
-/* Flag bits in the curl_blob struct: */
-public constant
-	CURL_BLOB_COPY      = 1,
-	CURL_BLOB_NOCOPY    = 0,
-$
-
-ifdef BITS64 then
-
-constant
-	curl_blob__data     =  0, -- void*
-	curl_blob__len      =  8, -- size_t
-	curl_blob__flags    = 16, -- unsigned int
-	SIZEOF_CURL_BLOB    = 24,
-$
-
-elsedef -- BITS32
-
-constant
-	curl_blob__data     =  0, -- void*
-	curl_blob__len      =  4, -- size_t
-	curl_blob__flags    =  8, -- unsigned int
-	SIZEOF_CURL_BLOB    = 12,
-$
-
-end ifdef
-
-/*
- * NAME curl_easy_init()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_init()
-	return c_func( _curl_easy_init, {} )
-end function
-
-/*
- * NAME curl_easy_setopt_long()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_long( atom curl, integer option, atom param )
-
-	if not curlopttype_long( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_long: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	return c_func( _curl_easy_setopt_long, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_setopt_objptr()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_objptr( atom curl, integer option, atom param )
-
-	if not curlopttype_objectpoint( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_ptr: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_setopt_func()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_func( atom curl, integer option, atom param )
-
-	if not curlopttype_functionpoint( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_func: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_setopt_off_t()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_off_t( atom curl, integer option, atom param )
-
-	if not curlopttype_off_t( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_off_t: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	return c_func( _curl_easy_setopt_off_t, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_setopt_blob()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_blob( atom curl, integer option, atom blob_data, atom blob_len, atom blob_flags = CURL_BLOB_NOCOPY )
-
-	if not curlopttype_blob( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_blob: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	atom param = allocate_data( SIZEOF_CURL_BLOB )
-	poke_pointer( param + curl_blob__data,  blob_data )
-	poke_pointer( param + curl_blob__len,   blob_len )
-	poke_pointer( param + curl_blob__flags, blob_flags )
-
-	integer result = c_func( _curl_easy_setopt_ptr, {curl,option,param} )
-
-	free( param )
-
-	return result
-end function
-
-/*
- * NAME curl_easy_setopt_string()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_string( atom curl, integer option, object param, integer cleanup = TRUE )
-
-	if not curlopttype_stringpoint( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_string: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	if option = CURLOPT_POSTFIELDS and cleanup = TRUE then
-		error:crash( "Cannot set 'cleanup' to FALSE when using CURLOPT_POSTFIELDS" )
-	end if
-
-	if sequence( param ) then
-		param = allocate_string( param, cleanup )
-	end if
-
-	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_setopt_slist()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_slist( atom curl, integer option, atom param )
-
-	if not curlopttype_slistpoint( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_slist: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_setopt_cbptr()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_cbptr( atom curl, integer option, atom param )
-
-	if not curlopttype_cbpoint( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_cbptr: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_setopt_values()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_setopt_values( atom curl, integer option, atom param )
-
-	if not curlopttype_values( option ) then
-		error:crash( "Invalid option for curl_easy_setopt_values: %s (%d)\n",
-			{curlopt_name(option),curlopt_value(option)} )
-	end if
-
-	return c_func( _curl_easy_setopt_long, {curl,option,param} )
-end function
-
-/*
- * NAME curl_easy_perform()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_perform( atom curl )
-	return c_func( _curl_easy_perform, {curl} )
-end function
-
-/*
- * NAME curl_easy_cleanup()
- *
- * DESCRIPTION
- *
- */
-public procedure curl_easy_cleanup( atom curl )
-	c_proc( _curl_easy_cleanup, {curl} )
-end procedure
-
-/*
- * NAME curl_easy_getinfo()
- *
- * DESCRIPTION
- *
- * Request internal information from the curl session with this function.  The
- * third argument MUST be a pointer to a long, a pointer to a char * or a
- * pointer to a double (as the documentation describes elsewhere).  The data
- * pointed to will be filled in accordingly and can be relied upon only if the
- * function returns CURLE_OK.  This function is intended to get used *AFTER* a
- * performed transfer, all results from this function are undefined until the
- * transfer is completed.
- */
-
-/*
- * NAME curl_easy_getinfo_string()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_getinfo_string( atom curl, integer option )
-
-	atom param = allocate_data( sizeof(C_POINTER), TRUE )
-	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
-	
-	if result = CURLE_OK then
-
-		atom ptr = peek_pointer( param )
-		sequence string = ""
-
-		if ptr != NULL then
-			string = peek_string( ptr )
-		end if
-
-		return string
-	end if
-
-	return NULL
-end function
-
-/*
- * NAME curl_easy_getinfo_long()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_getinfo_long( atom curl, integer option )
-
-	atom param = allocate_data( sizeof(C_LONG), TRUE )
-	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
-	
-	if result = CURLE_OK then
-		return peek4s( param )
-	end if
-
-	return NULL
-end function
-
-/*
- * NAME curl_easy_getinfo_double()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_getinfo_double( atom curl, integer option )
-
-	atom param = allocate_data( sizeof(C_DOUBLE), TRUE )
-	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
-	
-	if result = CURLE_OK then
-		sequence bytes = peek({ param, sizeof(C_DOUBLE) })
-		return float64_to_atom( bytes )
-	end if
-
-	return NULL
-end function
-
-/*
- * NAME curl_easy_getinfo_slist()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_getinfo_slist( atom curl, integer option )
-
-	atom param = allocate_data( sizeof(C_POINTER), TRUE )
-	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
-	
-	if result = CURLE_OK then
-		atom slist = peek_pointer( param )
-		return curl_slist_values( slist )
-	end if
-
-	return NULL
-end function
-
-/*
- * NAME curl_easy_getinfo_off_t()
- *
- * DESCRIPTION
- *
- */
-public function curl_easy_getinfo_off_t( atom curl, integer option )
-
-	atom param = allocate_data( sizeof(C_LONGLONG), TRUE )
-	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
-	
-	if result = CURLE_OK then
-		return peek8s( param )
-	end if
-
-	return NULL
-end function
-
-/*
- * NAME curl_easy_duphandle()
- *
- * DESCRIPTION
- *
- * Creates a new curl session handle with the same options set for the handle
- * passed in. Duplicating a handle could only be a matter of cloning data and
- * options, internal state info and things like persistent connections cannot
- * be transferred. It is useful in multithreaded applications when you can run
- * curl_easy_duphandle() for each new thread to avoid a series of identical
- * curl_easy_setopt() invokes in every thread.
- */
-public function curl_easy_duphandle( atom curl )
-	return c_func( _curl_easy_duphandle, {curl} )
-end function
-
-/*
- * NAME curl_easy_reset()
- *
- * DESCRIPTION
- *
- * Re-initializes a CURL handle to the default values. This puts back the
- * handle to the same state as it was in when it was just created.
- *
- * It does keep: live connections, the Session ID cache, the DNS cache and the
- * cookies.
- */
-public procedure curl_easy_reset( atom curl )
-	c_proc( _curl_easy_reset, {curl} )
-end procedure
-
-/*
- * NAME curl_easy_recv()
- *
- * DESCRIPTION
- *
- * Receives data from the connected socket. Use after successful
- * curl_easy_perform() with CURLOPT_CONNECT_ONLY option.
- */
-public function curl_easy_recv( atom curl, integer buflen )
-
-	atom buffer = allocate_data( buflen, TRUE )
-	atom lenaddr = allocate_data( sizeof(C_SIZE_T), TRUE )
-
-	atom result = c_func( _curl_easy_recv, {curl,buffer,buflen,lenaddr} )
-
-	if result = CURLE_OK then
-		atom len = peek_pointer( lenaddr )
-		return peek({ buffer, len })
-	end if
-
-	return result
-end function
-
-/*
- * NAME curl_easy_send()
- *
- * DESCRIPTION
- *
- * Sends data over the connected socket. Use after successful
- * curl_easy_perform() with CURLOPT_CONNECT_ONLY option.
- */
-public function curl_easy_send( atom curl, sequence data )
-
-	integer buflen = length( data )
-	atom buffer = allocate_data( buflen, TRUE )
-	atom lenaddr = allocate_data( sizeof(C_SIZE_T), TRUE )
-
-	poke( buffer, data )
-
-	atom result = c_func( _curl_easy_send, {curl,buffer,buflen,lenaddr} )
-	
-	if result = CURLE_OK then
-		return peek_pointer( lenaddr )
-	end if
-
-	return 0
-end function
 
