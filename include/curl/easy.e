@@ -157,19 +157,21 @@ end function
  * DESCRIPTION
  *
  */
-public function curl_easy_setopt_string( atom curl, integer option, object param, integer cleanup = TRUE )
+public function curl_easy_setopt_string( atom curl, integer option, object param )
 
 	if not curlopttype_stringpoint( option ) then
 		error:crash( "Invalid option for curl_easy_setopt_string: %s (%d)\n",
 			{curlopt_name(option),option} )
 	end if
 
-	if option = CURLOPT_POSTFIELDS and cleanup = TRUE then
-		error:crash( "Cannot set 'cleanup' to FALSE when using CURLOPT_POSTFIELDS" )
-	end if
-
 	if sequence( param ) then
-		param = allocate_string( param, cleanup )
+
+		if option = CURLOPT_POSTFIELDS then
+			option = CURLOPT_COPYPOSTFIELDS
+		end if
+
+		param = allocate_string( param, TRUE )
+
 	end if
 
 	return c_func( _curl_easy_setopt_ptr, {curl,option,param} )
@@ -282,10 +284,10 @@ public function curl_easy_getinfo_string( atom curl, integer option )
 			string = peek_string( ptr )
 		end if
 
-		return string
+		return {result,string}
 	end if
 
-	return NULL
+	return {result,""}
 end function
 
 /*
@@ -305,10 +307,11 @@ public function curl_easy_getinfo_long( atom curl, integer option )
 	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
 
 	if result = CURLE_OK then
-		return peek4s( param )
+		atom value = peek4s( param )
+		return {result,value}
 	end if
 
-	return NULL
+	return {result,0}
 end function
 
 /*
@@ -329,10 +332,12 @@ public function curl_easy_getinfo_double( atom curl, integer option )
 
 	if result = CURLE_OK then
 		sequence bytes = peek({ param, sizeof(C_DOUBLE) })
-		return float64_to_atom( bytes )
+		atom value = float64_to_atom( bytes )
+		
+		return {result,value}
 	end if
 
-	return NULL
+	return {result,0}
 end function
 
 /*
@@ -353,10 +358,12 @@ public function curl_easy_getinfo_slist( atom curl, integer option )
 
 	if result = CURLE_OK then
 		atom slist = peek_pointer( param )
-		return curl_slist_values( slist )
+		sequence value = curl_slist_values( slist )
+		
+		return {result,value}
 	end if
 
-	return NULL
+	return {result,{}}
 end function
 
 /*
@@ -376,10 +383,11 @@ public function curl_easy_getinfo_socket( atom curl, integer option )
 	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
 
 	if result = CURLE_OK then
-		return peek4s( param )
+		atom value = peek4s( param )
+		return {result,value}
 	end if
 
-	return NULL
+	return {result,NULL}
 end function
 
 /*
@@ -399,10 +407,11 @@ public function curl_easy_getinfo_off_t( atom curl, integer option )
 	integer result = c_func( _curl_easy_getinfo, {curl,option,param} )
 
 	if result = CURLE_OK then
-		return peek8s( param )
+		atom value = peek8s( param )
+		return {result,value}
 	end if
 
-	return NULL
+	return {result,0}
 end function
 
 /*
