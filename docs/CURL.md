@@ -102,7 +102,7 @@ Passing in a `NULL` pointer in handle will make this function return immediately
 `include curl/easy.e`  
 `public function curl_easy_setopt( atom curl, integer option, object param )`
 
-**curl_easy_setopt** is used to tell libcurl how to behave. By setting the appropriate options, the application can change libcurl's behavior. All options are set with an option followed by a parameter. That parameter can be a **long**, a **function pointer**, an **object pointer**, or a **curl_off_t**, depending on what the specific option expects. In order to accommodate these various types, there is no plain **curl_easy_setopt** function in this wrapper. Instead, there is a separate function for each option type:
+**curl_easy_setopt** is used to tell libcurl how to behave. By setting the appropriate options, the application can change libcurl's behavior. All options are set with an option followed by a parameter. That parameter can be a **long**, a **function pointer**, an **object pointer**, or a **curl_off_t**, depending on what the specific option expects. In order to accommodate these various types, **curl_easy_setopt** will try to determine the type of data based on the **option** parameter and then dispatch to a type-specific function.
 
 - `curl_easy_setopt_long( atom curl, integer option, atom param )`
 - `curl_easy_setopt_func( atom curl, integer option, atom param )`
@@ -144,7 +144,7 @@ You must never call this function simultaneously from two places using the same 
 `include curl/easy.e` 
 `public function curl_easy_getinfo( atom curl, integer option )`
 
-Request internal information from the curl session with this function. The return value may be a **long**, a **string**, a **curl_slist**, or a **double** (as this documentation describes further down). In order to accommodate these various types, there is no plain **curl_easy_getinfo** function in this wrapper. Instead, there is a separate function for each option type:
+Request internal information from the curl session with this function. The return value may be a **long**, a **string**, a **curl_slist**, or a **double** (as this documentation describes further down). In order to accommodate these various types, **curl_easy_getinfo** will try to determine the type of data based on the **option** parameter and then dispatch to a type-specific function.
 
 - `public function curl_easy_getinfo_long( atom curl, integer option )`
 - `public function curl_easy_getinfo_string( atom curl, integer option )`

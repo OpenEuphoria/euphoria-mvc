@@ -63,6 +63,37 @@ public function curl_easy_init()
 end function
 
 /*
+ * NAME curl_easy_setopt()
+ *
+ * DESCRIPTION
+ *
+ */
+public function curl_easy_setopt( atom curl, integer option, object param )
+
+	if sequence( param ) then
+		return curl_easy_setopt_string( curl, option, param )
+
+	elsif curlopttype_long( option ) then
+		return curl_easy_setopt_long( curl, option, param )
+
+	elsif curlopttype_objectpoint( option ) then
+		return curl_easy_setopt_objptr( curl, option, param )
+
+	elsif curlopttype_functionpoint( option ) then
+		return curl_easy_setopt_func( curl, option, param )
+
+	elsif curlopttype_off_t( option ) then
+		return curl_easy_setopt_off_t( curl, option, param )
+
+	end if
+
+	error:crash( "Invalid option for curl_easy_setopt: %s (%d)\n",
+		{curlopt_name(option),option} )
+
+	return CURLE_UNKNOWN_OPTION
+end function
+
+/*
  * NAME curl_easy_setopt_long()
  *
  * DESCRIPTION
@@ -84,7 +115,7 @@ end function
  * DESCRIPTION
  *
  */
-public function curl_easy_setopt_objptr( atom curl, integer option, atom param )
+public function curl_easy_setopt_objptr( atom curl, integer option, object param )
 
 	if not curlopttype_objectpoint( option ) then
 		error:crash( "Invalid option for curl_easy_setopt_ptr: %s (%d)\n",
@@ -258,6 +289,31 @@ end procedure
  * performed transfer, all results from this function are undefined until the
  * transfer is completed.
  */
+public function curl_easy_getinfo( atom curl, integer option )
+
+	if curlinfo_string( option ) then
+		return curl_easy_getinfo_string( curl, option )
+
+	elsif curlinfo_long( option ) then
+		return curl_easy_getinfo_long( curl, option )
+
+	elsif curlinfo_double( option ) then
+		return curl_easy_getinfo_double( curl, option )
+
+	elsif curlinfo_slist( option ) then
+		return curl_easy_getinfo_slist( curl, option )
+
+	elsif curlinfo_socket( option ) then
+		return curl_easy_getinfo_socket( curl, option )
+
+	elsif curlinfo_off_t( option ) then
+		return curl_easy_getinfo_off_t( curl, option )
+
+	end if
+
+	return {CURLE_UNKNOWN_OPTION,NULL}
+end function
+
 
 /*
  * NAME curl_easy_getinfo_string()
