@@ -3,6 +3,7 @@ namespace logger
 
 include std/console.e
 include std/datetime.e
+include std/error.e
 include std/filesys.e
 include std/io.e
 include std/graphics.e
@@ -19,27 +20,30 @@ public enum
 	LOG_VERBOSE = -1, -- special flag for extra verbosity
 	----------
 	LOG_OFF = 0,
+	LOG_FATAL,
 	LOG_ERROR,
 	LOG_WARN,
 	LOG_INFO,
 	LOG_DEBUG,
 	LOG_TRACE,
 	----------
-	LOG_ALL -- this should always be the last item
+	LOG_LAST -- this should always be the last item
 
-sequence log_title = repeat( "", LOG_ALL-1 )
+sequence log_title = repeat( "", LOG_LAST-1 )
+log_title[LOG_FATAL] = "FATAL"
 log_title[LOG_ERROR] = "ERROR"
 log_title[LOG_WARN ] = "WARN"
 log_title[LOG_INFO ] = "INFO"
 log_title[LOG_DEBUG] = "DEBUG"
 log_title[LOG_TRACE] = "TRACE"
 
-sequence log_color = repeat( 0, LOG_ALL-1 )
-log_color[LOG_ERROR] = RED
+sequence log_color = repeat( 0, LOG_LAST-1 )
+log_color[LOG_FATAL] = RED
+log_color[LOG_ERROR] = BRIGHT_RED
 log_color[LOG_WARN ] = YELLOW
-log_color[LOG_INFO ] = WHITE
-log_color[LOG_DEBUG] = GREEN
-log_color[LOG_TRACE] = BLUE
+log_color[LOG_INFO ] = BRIGHT_WHITE
+log_color[LOG_DEBUG] = BRIGHT_GREEN
+log_color[LOG_TRACE] = BRIGHT_BLUE
 
 constant DEFAULT_DATE_COLOR  = GRAY
 constant DEFAULT_DATE_FORMAT = "%Y/%m/%d %H:%M:%S"
@@ -66,6 +70,9 @@ elsifdef LOG_WARN then
 
 elsifdef LOG_ERROR then
 	constant DEFAULT_LOG_LEVEL = LOG_ERROR
+
+elsifdef LOG_FATAL then
+	constant DEFAULT_LOG_LEVEL = LOG_FATAL
 
 elsedef
 	constant DEFAULT_LOG_LEVEL = LOG_INFO
@@ -256,14 +263,61 @@ ifdef EUI then
 constant LOG_ROUTINES = {
 	"call_stack",
 	"log_message",
-	"log_error",
-	"log_warn",
-	"log_info",
+	"log_assert",
+	"log_crash",
 	"log_debug",
-	"log_trace"
+	"log_error",
+	"log_fatal",
+	"log_info",
+	"log_trace",
+	"log_warn"
 }
 
 end ifdef
+
+--
+-- Convert anything that's meant to be a string into its pretty printed version.
+-- This will strip new lines, add quotes, escape characters, etc. for better output.
+--
+function log_format( sequence msg, object data )
+
+	if atom( data ) then
+		data = {data}
+	end if
+
+	if not equal( data, {} ) then
+
+		integer i = 0
+		integer start = find( '%', msg )
+
+		while start != 0 and start <= length(msg) do
+
+			integer stop = start+1
+
+			while stop <= length(msg) and find( msg[stop], "1234567890" ) do
+				stop += 1
+			end while
+
+			if not find( msg[stop], "dxosefg%" ) then
+				start = find( '%', msg, stop+1 )
+				continue
+			end if
+
+			i += 1
+
+			if msg[stop] = 's' then -- %s format
+				data[i] = pretty_sprint( data[i], m_pretty_options )
+			end if
+
+			start = find( '%', msg, stop+1 )
+		end while
+
+		msg = sprintf( msg, data )
+
+	end if
+
+	return msg
+end function
 
 --
 -- All purpose message logging function.
@@ -275,37 +329,7 @@ public procedure log_message( integer level, sequence msg, object data = {}, int
 		return
 	end if
 
-	if atom( data ) then
-		data = {data}
-	end if
-
-	-- convert anything that's meant to be a string into its pretty printed version
-	-- this will strip new lines, add quotes, escape characters, etc. for better output
-
-	if not equal( data, {} ) then
-
-		integer i = 0
-		integer index = find( '%', msg )
-
-		while index != 0 and index < length(msg) do
-
-			if not find( msg[index+1], "dxosefg%" ) then
-				index = find( '%', msg, index+1 )
-				continue
-			end if
-
-			i += 1
-
-			if msg[index+1] = 's' then -- %s format
-				data[i] = pretty_sprint( data[i], m_pretty_options )
-			end if
-
-			index = find( '%', msg, index+1 )
-		end while
-
-		msg = sprintf( msg, data )
-
-	end if
+	msg = log_format( msg, data )
 
 ifdef EUI then
 
@@ -373,6 +397,56 @@ end ifdef
 
 		end for
 	end for
+
+end procedure
+
+--
+-- Log a FATAL message and *CRASH* immediately.
+--
+public procedure log_crash( sequence msg, object data = {}, integer flags = 0 )
+
+	msg = log_format( msg, data )
+	flags = 0
+
+	log_message( LOG_FATAL, msg, {}, flags )
+
+	if not match( "Error: ", msg ) then
+		msg = "Fatal Error: " & msg
+	end if
+
+	error:crash( msg )
+
+end procedure
+
+--
+-- If 'condition' is not true, log a FATAL message and *CRASH* immediately.
+--
+public procedure log_assert( integer condition, sequence msg, object data = {}, integer flags = 0 )
+
+	msg = log_format( msg, data )
+	flags = 0
+
+	if not condition then
+		log_message( LOG_FATAL, msg, {}, flags )
+		error:crash( "Assert Failed: " & msg )
+	end if
+
+end procedure
+
+--
+-- Log an FATAL message.
+--
+public procedure log_fatal( sequence msg, object data = {}, integer flags = 0 )
+
+	integer log_level = m_log_level
+
+ifdef LOG_FATAL then
+	log_level = LOG_FATAL
+end ifdef
+
+	if log_level >= LOG_FATAL then
+		log_message( LOG_FATAL, msg, data, flags )
+	end if
 
 end procedure
 
