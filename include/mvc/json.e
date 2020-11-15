@@ -1,6 +1,7 @@
 
 namespace json
 
+include std/convert.e
 include std/get.e
 include std/io.e
 include std/pretty.e
@@ -12,8 +13,6 @@ public enum
     J_TYPE,
     J_VALUE
 
-export sequence json_last_error = ""
-
 export enum type jsontype_t
     JSON_NONE = 0,
     JSON_OBJECT,
@@ -23,7 +22,51 @@ export enum type jsontype_t
     JSON_PRIMITIVE
 end type
 
-export function json_skip_whitespace( string js, integer start )
+export sequence json_error_stack = {}
+
+export procedure json_clear_error()
+	json_error_stack = {}
+end procedure
+
+export procedure json_push_error( sequence error, object data = {} )
+	json_error_stack = prepend( json_error_stack, sprintf(error,data) )
+end procedure
+
+public enum JSON_ERROR_LAST = 0, JSON_ERROR_FULL
+
+public function json_last_error( integer error_mode = JSON_ERROR_LAST )
+
+	if error_mode = JSON_ERROR_LAST then
+
+		if length( json_error_stack ) then
+			return json_error_stack[1]
+		end if
+
+		return ""
+	end if
+
+	return json_error_stack
+end function
+
+export function json_escape( sequence old )
+
+    sequence new = ""
+
+    for i = 1 to length( old ) do
+        switch old[i] do
+            case '\n' then new &= "\\n"
+            case '\r' then new &= "\\r"
+            case '\t' then new &= "\\t"
+            case '\"' then new &= "\\\""
+            case '\\' then new &= "\\\\"
+            case else new &= old[i]
+        end switch
+    end for
+
+    return new
+end function
+
+export function json_skip_whitespace( sequence js, integer start )
 
     integer i = start
 
@@ -42,7 +85,7 @@ function sort_by_key( sequence pairs )
     return custom_sort( routine_id("compare_keys"), pairs )
 end function
 
-export function json_parse_object( string js, integer start )
+export function json_parse_object( sequence js, integer start )
 
     jsontype_t json_type = JSON_NONE
     object json_value = 0
@@ -51,14 +94,14 @@ export function json_parse_object( string js, integer start )
     integer last_i = i
 
     if i <= length( js ) and js[i] != '{' then
-        json_last_error = sprintf( "json_parse_object(): Expected '{' at position %d", i )
+        json_push_error( "json_parse_object(): Expected '{' at position %d", i )
         return {json_type,json_value,i}
     end if
 
     json_value = {}
     i = json_skip_whitespace( js, i+1 )
 
-    while i <= length( js ) do
+    while i <= length( js ) and js[i] != '}' do
 
         integer key_type, value_type
         object key_object, value_object
@@ -67,14 +110,14 @@ export function json_parse_object( string js, integer start )
         {key_type,key_object,i} = json_parse_value( js, i )
 
         if key_type != JSON_STRING then
-            json_last_error = sprintf( "json_parse_object(): Expected string at position %d", last_i )
+            json_push_error( "json_parse_object(): Expected string at position %d", last_i )
             exit
         end if
 
         i = json_skip_whitespace( js, i )
 
         if js[i] != ':' then
-            json_last_error = sprintf( "json_parse_object(): Expected ':' at position %d", i )
+            json_push_error( "json_parse_object(): Expected ':' at position %d", i )
             exit
         end if
 
@@ -84,7 +127,7 @@ export function json_parse_object( string js, integer start )
         {value_type,value_object,i} = json_parse_value( js, i )
 
         if value_type = JSON_NONE then
-            json_last_error = sprintf( "json_parse_object(): Expected object at position %d", last_i )
+            json_push_error( "json_parse_object(): Expected object at position %d", last_i )
             exit
         end if
 
@@ -92,29 +135,27 @@ export function json_parse_object( string js, integer start )
 
         i = json_skip_whitespace( js, i )
 
-        if js[i] = '}' then
-            json_type = JSON_OBJECT
+        if js[i] = ',' then
             i += 1
+            continue
+        end if
+
+        if js[i] != '}' then
+            json_push_error( "json_parse_object(): Expected '}' at position %d", i )
             exit
         end if
 
-        if js[i] != ',' then
-            json_last_error = sprintf( "json_parse_object(): Expected ',' at position %d", i )
-            exit
-        end if
-
-        i += 1
     end while
 
-    if json_type = JSON_NONE then
-        delete( json_value )
-        json_value = 0
+    if js[i] = '}' then
+        json_type = JSON_OBJECT
+        i += 1
     end if
 
     return {json_type,json_value,i}
 end function
 
-export function json_parse_array( string js, integer start )
+export function json_parse_array( sequence js, integer start )
 
     jsontype_t json_type = JSON_NONE
     object json_value = 0
@@ -123,14 +164,14 @@ export function json_parse_array( string js, integer start )
     integer last_i = i
 
     if i <= length( js ) and js[i] != '[' then
-        json_last_error = sprintf( "json_parse_array(): Expected '[' at position %d", i )
+        json_push_error( "json_parse_array(): Expected '[' at position %d", i )
         return {json_type,json_value,i}
     end if
 
     json_value = {}
     i = json_skip_whitespace( js, i+1 )
 
-    while i <= length( js ) do
+    while i <= length( js ) and js[i] != ']' do
 
         integer member_type
         object member_value
@@ -138,7 +179,7 @@ export function json_parse_array( string js, integer start )
         {member_type,member_value,i} = json_parse_value( js, i )
 
         if member_type = JSON_NONE then
-            json_last_error = sprintf( "json_parse_array(): Expected object at position %d", last_i )
+            json_push_error( "json_parse_array(): Expected object at position %d", last_i )
             exit
         end if
 
@@ -146,24 +187,27 @@ export function json_parse_array( string js, integer start )
 
         i = json_skip_whitespace( js, i )
 
-        if js[i] = ']' then
-            json_type = JSON_ARRAY
+        if js[i] = ',' then
             i += 1
+            continue
+        end if
+
+        if js[i] != ']' then
+            json_push_error( "json_parse_array(): Expected ']' at position %d", i )
             exit
         end if
 
-        if js[i] != ',' then
-            json_last_error = sprintf( "json_parse_array(): Expected ',' at position %d", i )
-            exit
-        end if
-
-        i += 1
     end while
+
+    if js[i] = ']' then
+        json_type = JSON_ARRAY
+        i += 1
+    end if
 
     return {json_type,json_value,i}
 end function
 
-export function json_parse_string( string js, integer start )
+export function json_parse_string( sequence js, integer start )
 
     jsontype_t json_type = JSON_NONE
     object json_value = 0
@@ -171,26 +215,27 @@ export function json_parse_string( string js, integer start )
     integer i = start
 
     if i <= length( js ) and js[i] != '"' then
-        json_last_error = sprintf( "json_parse_string(): Expected '\"' at position %d", i )
+        json_push_error( "json_parse_string(): Expected '\"' at position %d", i )
         return {json_type,json_value,i}
     end if
 
     object get_status, get_result, get_offset
     {get_status,get_result,get_offset,?} = stdget:value( js, i, GET_LONG_ANSWER )
 
-    i += get_offset
-
     if get_status = GET_SUCCESS and string( get_result ) then
         json_type = JSON_STRING
         json_value = get_result
+        i += get_offset
+
     else
-        json_last_error = sprintf( "json_parse_string(): Expected string at position %d", i )
-    end if        
+        json_push_error( "json_parse_string(): Expected string at position %d", i )
+
+    end if
 
     return {json_type,json_value,i}
 end function
 
-export function json_parse_number( string js, integer start )
+export function json_parse_number( sequence js, integer start )
 
     jsontype_t json_type = JSON_NONE
     object json_value = 0
@@ -198,7 +243,7 @@ export function json_parse_number( string js, integer start )
     integer i = start
     
     if i <= length( js ) and find( js[i], "-0123456789" ) = 0 then
-        json_last_error = sprintf( "json_parse_number(): Expected digit or '-' at position %d", i )
+        json_push_error( "json_parse_number(): Expected digit or '-' at position %d", i )
         return {json_type,json_value,i}
     end if
 
@@ -211,13 +256,13 @@ export function json_parse_number( string js, integer start )
         json_type = JSON_NUMBER
         json_value = get_result
     else
-        json_last_error = sprintf( "json_parse_number(): Expected number at position %d", i )
+        json_push_error( "json_parse_number(): Expected number at position %d", i )
     end if        
 
     return {json_type,json_value,i}
 end function
 
-export function json_parse_primitive( string js, integer start )
+export function json_parse_primitive( sequence js, integer start )
 
     jsontype_t json_type = JSON_NONE
     object json_value = 0
@@ -235,13 +280,13 @@ export function json_parse_primitive( string js, integer start )
     if find( json_value, {"true","false","null"} ) then
         json_type = JSON_PRIMITIVE
     else
-        json_last_error = sprintf( "json_parse_primitive(): Expected one of (true,false,null) at position %d", last_i )
+        json_push_error( "json_parse_primitive(): Expected one of (true,false,null) at position %d", last_i )
     end if
 
     return {json_type,json_value,i}
 end function
 
-export function json_parse_value( string js, integer start )
+export function json_parse_value( sequence js, integer start )
 
     jsontype_t json_type = JSON_NONE
     object json_value = 0
@@ -276,49 +321,39 @@ end function
 
 public function json_parse( string js )
 
-    jsontype_t json_type = JSON_NONE
-    object json_value = 0
+    jsontype_t json_type
+    object json_value
 
-    json_last_error = ""
+    json_clear_error()
     {json_type,json_value,?} = json_parse_value( js, 1 )
 
     return {json_type,json_value}
 end function
 
-public function json_parse_file( string file_name )
+public function json_parse_file( object file_name )
 
-    jsontype_t json_type = JSON_NONE
-    object json_value = 0
-
-    integer fn = open( file_name, "rb" )
-
-    if fn = -1 then
-        json_last_error = sprintf( "Could not read file \"%s\"", {file_name} )
-        return {json_type,json_value}
+    if string( file_name ) then
+        file_name = open( file_name, "rb", TRUE )
     end if
 
-    sequence js = read_file( fn )
-
-    close( fn )
-
-    return json_parse( js )
+    return json_parse( read_file(file_name) )
 end function
 
 public function json_sprint( sequence json_object, integer sorted_keys = TRUE, integer white_space = FALSE, integer indent_width = 4, integer start_column = 0 )
 
     sequence inner_pad, outer_pad, one_space, line_break
 
-	if white_space then
-		inner_pad = repeat( ' ', (start_column+1) * indent_width )
+    if white_space then
+        inner_pad = repeat( ' ', (start_column+1) * indent_width )
         outer_pad = repeat( ' ', (start_column+0) * indent_width )
         one_space = " "
-		line_break = "\n"
-	else
-		inner_pad = ""
+        line_break = "\n"
+    else
+        inner_pad = ""
         outer_pad = ""
         one_space = ""
-		line_break = ""
-	end if
+        line_break = ""
+    end if
 
     string s = ""
 
@@ -333,7 +368,9 @@ public function json_sprint( sequence json_object, integer sorted_keys = TRUE, i
             end if
 
             s &= "{"
-            s &= line_break
+            if length( pairs ) then
+                s &= line_break
+            end if
 
             for i = 1 to length( pairs ) do
 
@@ -350,7 +387,9 @@ public function json_sprint( sequence json_object, integer sorted_keys = TRUE, i
 
             end for
 
-            s &= outer_pad
+            if length( pairs ) then
+                s &= outer_pad
+            end if
             s &= "}"
 
         case JSON_ARRAY then
@@ -377,7 +416,7 @@ public function json_sprint( sequence json_object, integer sorted_keys = TRUE, i
             s &= "]"
 
         case JSON_STRING then
-            s &= sprintf( `"%s"`, {json_object[J_VALUE]} )
+            s &= sprintf( `"%s"`, {json_escape(json_object[J_VALUE])} )
 
         case JSON_NUMBER then
             s &= sprintf( `%g`, {json_object[J_VALUE]} )
@@ -390,14 +429,14 @@ public function json_sprint( sequence json_object, integer sorted_keys = TRUE, i
     return s
 end function
 
-public procedure json_print( integer fn, sequence json_object, integer sorted_keys = TRUE, integer white_space = FALSE, integer indent_width = 4, integer start_column = 0 )
+public procedure json_print( object file_name, sequence json_object, integer sorted_keys = TRUE, integer white_space = FALSE, integer indent_width = 4, integer start_column = 0 )
 
-    if string( fn ) then
-        fn = open( fn, "wb", TRUE )
+    if string( file_name ) then
+        file_name = open( file_name, "wb", TRUE )
     end if
 
-    puts( fn, json_sprint(json_object, sorted_keys, white_space, indent_width, start_column) )
-    
+    puts( file_name, json_sprint(json_object, sorted_keys, white_space, indent_width, start_column) )
+
 end procedure
 
 sequence PRETTY_MARKUP = PRETTY_DEFAULT
@@ -626,12 +665,22 @@ public function json_fetch( object json_object, sequence keys, object sep = '.' 
 
         found = 0
 
+        if t_digit( keys[i] ) then
+            keys[i] = to_integer( keys[i] )
+        end if
+
         for j = 1 to length( json_object[J_VALUE] ) do
 
-            if equal( json_object[J_VALUE][j][1], keys[i] ) then
-                found = j
+            if integer( keys[i] ) and equal( keys[i], j ) then
                 json_object = json_object[J_VALUE][j][2]
+                found = j
                 exit
+
+            elsif equal( json_object[J_VALUE][j][1], keys[i] ) then
+                json_object = json_object[J_VALUE][j][2]
+                found = j
+                exit
+
             end if
 
         end for
@@ -645,6 +694,58 @@ public function json_fetch( object json_object, sequence keys, object sep = '.' 
     end while
 
     return json_object
+end function
+
+public function json_fetch_array( object json_object, sequence keys, object sep = '.' )
+
+    if json_haskey( json_object, keys, sep ) then
+
+        object json_value = json_fetch( json_object, keys, sep )
+
+        if json_value[J_TYPE] = JSON_ARRAY then
+
+            for i = 1 to length( json_value[J_VALUE] ) do
+                json_value[J_VALUE][i] = json_value[J_VALUE][i][J_VALUE]
+            end for
+
+            return json_value[J_VALUE]
+        end if
+
+    end if
+
+    return {}
+end function
+
+public function json_fetch_number( object json_object, sequence keys, object sep = '.' )
+
+    if json_haskey( json_object, keys, sep ) then
+
+        object json_value = json_fetch( json_object, keys, sep )
+
+        if json_value[J_TYPE] = JSON_NUMBER then
+            return json_value[J_VALUE]
+        end if
+
+        return to_number( json_value[J_VALUE] )
+    end if
+
+    return 0
+end function
+
+public function json_fetch_string( object json_object, sequence keys, object sep = '.' )
+
+    if json_haskey( json_object, keys, sep ) then
+
+        object json_value = json_fetch( json_object, keys, sep )
+
+        if json_value[J_TYPE] = JSON_STRING then
+            return json_value[J_VALUE]
+        end if
+
+        return to_string( json_value[J_VALUE] )
+    end if
+
+    return ""
 end function
 
 public function json_remove( object json_object, sequence keys, object sep = '.' )
