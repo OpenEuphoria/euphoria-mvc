@@ -3,7 +3,7 @@ namespace app
 
 include std/convert.e
 include std/error.e
-include std/map.e
+--include std/map.e
 include std/io.e
 include std/pretty.e
 include std/regex.e
@@ -16,6 +16,7 @@ include std/utils.e
 
 include mvc/logger.e
 include mvc/template.e
+include mvc/mapdbg.e as map
 
 public include mvc/hooks.e
 public include mvc/headers.e
@@ -510,19 +511,38 @@ end procedure
 -- Requests
 --
 
+procedure cleanup_request( object request )
+
+	if map:has( request, "REQUEST_HEADERS" ) then
+
+		object request_headers = map:get( request, "REQUEST_HEADERS" )
+
+		if map( request_headers ) then
+			delete( request_headers )
+		end if
+
+	end if
+
+end procedure
+
 --
 -- Parse the path and query string for available variables.
 --
-public function parse_request( sequence vars, sequence matches, sequence path_info, sequence request_method, sequence query_string )
+public function parse_request( sequence vars, sequence matches, sequence path_info, sequence request_method, sequence query_string, object request_headers = {} )
 
 	if length( vars ) != length( matches ) then
 		error:crash( "route parameters do not match (%d != %d)",
 			{ length(vars), length(matches) } )
 	end if
 
+	if sequence( request_headers ) then
+		request_headers = map:new_from_kvpairs( request_headers )
+	end if
+
 	map request = parse_querystring( query_string )
 	map:put( request, "PATH_INFO", path_info )
 	map:put( request, "REQUEST_METHOD", request_method )
+	map:put( request, "REQUEST_HEADERS", request_headers )
 	map:put( request, "QUERY_STRING", query_string )
 
 	object varname, vartype, vardata
@@ -543,13 +563,13 @@ public function parse_request( sequence vars, sequence matches, sequence path_in
 
 	end for
 
-	return request
+	return delete_routine( request, routine_id("cleanup_request") )
 end function
 
 --
 -- Parse an incoming request, call its handler, and return the response.
 --
-public function handle_request( sequence path_info, sequence request_method, sequence query_string )
+public function handle_request( sequence path_info, sequence request_method, sequence query_string, sequence request_headers = {} )
 
 	integer exit_code
 
@@ -615,7 +635,7 @@ public function handle_request( sequence path_info, sequence request_method, seq
 
 		sequence matches = regex:matches( pattern, path_info )
 		object request = parse_request( vars, matches,
-			path_info, request_method, query_string )
+			path_info, request_method, query_string, request_headers )
 
 		m_current_route = name
 		m_current_path = path_info
@@ -629,7 +649,7 @@ public function handle_request( sequence path_info, sequence request_method, seq
 		exit_code = run_hooks( HOOK_RESPONSE_END )
 		if exit_code then return "" end if
 
-		delete( m_current_route )
+		log_trace( "delete map %d", request )
 		delete( request )
 
 		route_found = i
@@ -647,7 +667,7 @@ public function handle_request( sequence path_info, sequence request_method, seq
 			{path,name,vars,methods,func_id} = map:get( m_routes, pattern )
 
 			object request = parse_request( {}, {},
-				path_info, request_method, query_string )
+				path_info, request_method, query_string, request_headers )
 
 			m_current_route = name
 			m_current_path = path_info
