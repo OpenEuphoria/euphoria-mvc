@@ -2,7 +2,7 @@
 namespace server
 
 include std/console.e
-include std/map.e
+--include std/map.e
 include std/net/url.e
 include std/sequence.e
 include std/socket.e as socket
@@ -18,9 +18,10 @@ include mvc/logger.e
 include mvc/app.e
 include mvc/headers.e
 include mvc/hooks.e
+include mvc/mapdbg.e as map
 
-constant DEFAULT_ADDR = "127.0.0.1"
-constant DEFAULT_PORT = 5000
+public constant DEFAULT_ADDR = "127.0.0.1"
+public constant DEFAULT_PORT = 5000
 
 constant PROTOCOL_NONE = 0
 constant SOCKET_BACKLOG = 10
@@ -71,20 +72,42 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 	end if
 
 	integer received_bytes = length( request_data )
-	request_data = split( request_data, "\r\n" )
-
 	log_debug( "Received %d bytes from %s", {received_bytes,client_addr} )
 
-	sequence request_info = split( request_data[1], " " ) -- e.g. {"GET","/path","HTTP/1.1"}
+	integer separator = 0
+	sequence request_head = ""
+	sequence request_body = ""
+
+	separator = match( "\r\n\r\n", request_data )
+
+	if separator then
+		request_head = request_data[1..separator-1]
+		request_body = request_data[separator+4..$]
+	end if
+
+	separator = match( "\r\n", request_head )
+
+	if separator then
+		request_data = request_head[1..separator-1]
+		request_head = request_head[separator+2..$]
+	end if
+
+	sequence request_info = split( request_data, " " ) -- e.g. {"GET","/path","HTTP/1.1"}
 	sequence request_method = request_info[1]
 	sequence path_info      = request_info[2]
 	sequence http_protocol  = request_info[3]
 	sequence query_string   = ""
 
-	log_trace( "request_method = %s", {request_method} )
-	log_trace( "path_info = %s",      {path_info} )
-	log_trace( "http_protocol = %s",  {http_protocol} )
-	log_trace( "query_string = %s",   {query_string} )
+	sequence request_headers = split( request_head, "\r\n" )
+	for i = 1 to length( request_headers ) do
+		request_headers[i] = split( request_headers[i], ": " )
+	end for
+
+	log_trace( "request_method = %s",  {request_method} )
+	log_trace( "request_headers = %s", {request_headers} )
+	log_trace( "path_info = %s",       {path_info} )
+	log_trace( "http_protocol = %s",   {http_protocol} )
+	log_trace( "query_string = %s",    {query_string} )
 
 	if find( '?', path_info ) then
 		{path_info,query_string} = split( path_info, '?' )
@@ -94,13 +117,13 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 		if length( query_string ) then
 			query_string &= "&"
 		end if
-		query_string &= request_data[$]
+		query_string &= request_body
 	end if
 
 	path_info = url:decode( path_info )
 	query_string = url:decode( query_string )
 
-	sequence response_data = handle_request( path_info, request_method, query_string )
+	sequence response_data = handle_request( path_info, request_method, query_string, request_headers )
 
 	if run_hooks( HOOK_HEADERS_START ) then
 		socket:close( client_sock )
@@ -138,6 +161,8 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 	log_debug( "Closed connection from %s", {client_addr} )
 
 	delete( client_sock )
+
+	print_maps()
 
 end procedure
 
