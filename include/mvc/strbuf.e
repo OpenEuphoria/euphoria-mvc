@@ -29,8 +29,8 @@ $
 
 end ifdef
 
-constant STRBUF_INIT_SIZE = 512
-constant STRBUF_GROW_SIZE = 256
+constant STRBUF_INIT_SIZE = 2097152
+constant STRBUF_GROW_SIZE = 1048576
 
 --
 -- Allocate a new string buffer.
