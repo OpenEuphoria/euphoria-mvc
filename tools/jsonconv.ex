@@ -14,7 +14,7 @@ export procedure main()
 
     sequence json = json_parse_file( cmd[3] )
     if json[J_TYPE] = JSON_NONE then
-        printf( STDERR, "%s\n", {json_last_error} )
+        printf( STDERR, "%s\n", {json_last_error()} )
         return
     end if
 
