@@ -2,30 +2,44 @@
 namespace curl
 
 include std/dll.e
-include std/machine.e
-include std/convert.e
 include std/error.e
+include std/machine.e
 
 constant TRUE = 1
 constant FALSE = 0
 
 ifdef LINUX then
-	export atom libcurl = open_dll( "libcurl.so.4" )
+	export sequence libcurl_name = { "libcurl.so.4", "libcurl.so" }
 
 elsifdef WINDOWS then
 
 	ifdef BITS64 then
-	export atom libcurl = open_dll({ "libcurl-x64.dll", "libcurl.dll" })
-
-	elsedef
-	export atom libcurl = open_dll( "libcurl.dll" )
-
+	export sequence libcurl_name = { "libcurl-x64.dll", "libcurl.dll" }
+	elsedef -- BITS32
+	export sequence libcurl_name = { "libcurl-x32.dll", "libcurl.dll" }
 	end ifdef
 
 elsedef
 	error:crash( "Platform not supported" )
 
 end ifdef
+
+export atom libcurl = NULL
+
+for i = 1 to length( libcurl_name ) do
+
+	libcurl = open_dll( libcurl_name[i] )
+
+	if libcurl != NULL then
+		libcurl_name = libcurl_name[i]
+		exit
+	end if
+
+end for
+
+if libcurl = NULL then
+	error:crash( "libcurl not found!" )
+end if
 
 export constant C_OFF_T = C_LONGLONG
 export constant C_STRING = C_POINTER
