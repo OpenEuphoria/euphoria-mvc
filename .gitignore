@@ -1,2 +1,4 @@
+build/
 ex.err
 euphoria-mvc.session
+*.bak
