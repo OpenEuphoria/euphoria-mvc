@@ -6,7 +6,7 @@ include std/error.e
 include std/filesys.e
 include std/get.e
 include std/io.e
-include std/map.e
+--include std/map.e
 include std/pretty.e
 include std/regex.e
 include std/search.e
@@ -16,6 +16,7 @@ include std/types.e
 include std/utils.e
 
 include mvc/logger.e
+include mvc/mapdbg.e as map
 
 constant NULL = 0
 
@@ -64,6 +65,7 @@ public constant
 	T_EXPRESSION	= new_token( "T_EXPRESSION",  `^{{\s*(.+?)\s*}}$` ),
 	T_COMMENT       = new_token( "T_COMMENT",     `^{#\s*(.+?)\s*#}$` ),
 	T_EXTENDS       = new_token( "T_EXTENDS",     `^{%\s*extends\s+(.+?)\s*%}$` ),
+	T_INCLUDE       = new_token( "T_INCLUDE",     `^{%\s*include\s+(.+?)\s*%}$` ),
 	T_BLOCK         = new_token( "T_BLOCK",       `^{%\s*block\s+(.+?)\s*%}$` ),
 	T_ENDBLOCK      = new_token( "T_ENDBLOCK",    `^{%\s*end\s+block\s*%}$` ),
 	T_IF            = new_token( "T_IF",          `^{%\s*if\s+(.+?)\s*%}$` ),
@@ -78,7 +80,9 @@ $
 -- Global template management.
 --
 
+ifdef TEMPLATE_CACHE then
 map m_template_cache = map:new()
+end ifdef
 
 object template_path = getenv( "TEMPLATE_PATH" )
 
@@ -116,14 +120,13 @@ end type
 --
 public procedure add_function( sequence func_name, sequence params = {}, integer func_id = routine_id(func_name) )
 
-    if func_id = -1 then
-        log_error( "function %s not found", {func_name} )
-        error:crash( "function %s not found", {func_name} )
-    end if
+	if func_id = -1 then
+		log_crash( "function %s not found", {func_name} )
+	end if
 
-    if not map:has( m_functions, func_name ) then
+	if not map:has( m_functions, func_name ) then
 		map:put( m_functions, func_name, {params,func_id} )
-		log_debug( "Registered function %s with params %s at routine id %d", {func_name,params,func_id} )
+		log_trace( "registered function %s with params %s at routine id %d", {func_name,params,func_id} )
 	end if
 
 end procedure
@@ -139,8 +142,7 @@ public function call_function( sequence func_name, sequence values = {} )
 	{params,func_id} = map:get( m_functions, func_name, {{},-1} )
 
 	if func_id = -1 then
-		log_error( "function %s not found", {func_name} )
-		error:crash( "function %s not found", {func_name} )
+		log_crash( "function %s not found", {func_name} )
 	end if
 
 	integer start = length( values ) + 1
@@ -149,8 +151,7 @@ public function call_function( sequence func_name, sequence values = {} )
 	for i = start to stop do
 
 		if not default_param( params[i] ) then
-			log_error( "function %s does not provide a default value for param %s", {func_name,params[i]} )
-			error:crash( "function %s does not provide a default value for param %s", {func_name,params[i]} )
+			log_crash( "function %s does not provide a default value for param %s", {func_name,params[i]} )
 		end if
 
 		values = append( values, params[i][2] )
@@ -272,7 +273,7 @@ public enum TTYPE, TDATA, TTREE
 --
 -- Turn a template into a list of tokens.
 --
-public function token_lexer( sequence text )
+public function read_tokens( sequence text )
 
 	sequence tokens = {}
 	integer last_pos = 1
@@ -345,7 +346,7 @@ end function
 --
 -- Turn a list of tokens into an abstract syntax tree.
 --
-public function token_parser( sequence tokens, integer start = 1, sequence exit_tokens = {} )
+public function parse_tokens( sequence tokens, integer start = 1, sequence exit_tokens = {} )
 
 	sequence tree = {}
 	integer i = start
@@ -367,19 +368,19 @@ public function token_parser( sequence tokens, integer start = 1, sequence exit_
 		switch token[TTYPE] do
 
 			case T_BLOCK then
-				{temp,i} = token_parser( tokens, i, {T_ENDBLOCK} )
+				{temp,i} = parse_tokens( tokens, i, {T_ENDBLOCK} )
 
 			case T_IF then
-				{temp,i} = token_parser( tokens, i, {T_ELSIF,T_ELSE,T_ENDIF} )
+				{temp,i} = parse_tokens( tokens, i, {T_ELSIF,T_ELSE,T_ENDIF} )
 
 			case T_ELSIF then
-				{temp,i} = token_parser( tokens, i, {T_ELSE,T_ENDIF} )
+				{temp,i} = parse_tokens( tokens, i, {T_ELSE,T_ENDIF} )
 
 			case T_ELSE then
-				{temp,i} = token_parser( tokens, i, {T_ENDIF} )
+				{temp,i} = parse_tokens( tokens, i, {T_ENDIF} )
 
 			case T_FOR then
-				{temp,i} = token_parser( tokens, i, {T_ENDFOR} )
+				{temp,i} = parse_tokens( tokens, i, {T_ENDFOR} )
 
 		end switch
 
@@ -467,8 +468,6 @@ public function parse_value( sequence data, object response )
 
 	end if
 
-	log_trace( "parse_value( %s ) = %s", {data,var_value} )
-
 	return var_value
 end function
 
@@ -538,10 +537,6 @@ public function render_if( sequence tree, integer i, object response )
 	return {output,i}
 end function
 
---constant re_foritem   = regex:new( `^(\w+)\s+in\s+([\w\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
---constant re_forloop   = regex:new( `^(\w+)\s+=\s+(\w+)\s+to\s+(\w+)$` )
---constant re_forloopby = regex:new( `^(\w+)\s+=\s+(\w+)\s+to\s+(\w+)\s+by\s+(\w+)$` )
-
 constant re_foritem   = regex:new( `^(\w+)\s+in\s+(.+)?$` )
 constant re_forloop   = regex:new( `^(\w+)\s+=\s+(.+)\s+to\s+(.+)$` )
 constant re_forloopby = regex:new( `^(\w+)\s+=\s+(.+)\s+to\s+(.+)\s+by\s+(.+)$` )
@@ -565,7 +560,7 @@ public function render_for( sequence tree, integer i, object response )
 		object list_value = parse_value( list_name, response )
 
 		if not sequence( list_value ) then
-			error:crash( "expected object '%s' is not a sequence", {list_name} )
+			log_crash( "expected object %s is not a sequence", {list_name} )
 		end if
 
 		sequence item_name = matches[2]
@@ -629,7 +624,7 @@ public function render_for( sequence tree, integer i, object response )
 
 		map:remove( response, iter_name )
 
-		elsif regex:is_match( re_forloop, data ) then
+	elsif regex:is_match( re_forloop, data ) then
 		-- parse 'for i = m to n' block
 
 		sequence matches = regex:matches( re_forloop, data )
@@ -706,16 +701,16 @@ end function
 --
 -- Extend a template through its parent.
 --
-public function extend_template( sequence filename, sequence tree )
+public function extend_template( sequence tree, integer i, sequence filename )
 
 	map blocks = map:new()
 
-	for i = 1 to length( tree ) do
+	for j = 1 to length( tree ) do
 		-- collect block names from the template
 
-		if tree[i][TTYPE] = T_BLOCK then
-			sequence block_name = dequote( tree[i][TDATA] )
-			map:put( blocks, block_name, tree[i][TTREE] )
+		if tree[j][TTYPE] = T_BLOCK then
+			sequence block_name = dequote( tree[j][TDATA] )
+			map:put( blocks, block_name, tree[j][TTREE] )
 		end if
 
 	end for
@@ -725,55 +720,87 @@ public function extend_template( sequence filename, sequence tree )
 	end if
 
 	sequence text = read_file( filename )
-	sequence tokens = token_lexer( text )
+	sequence tokens = read_tokens( text )
 
-	tree = token_parser( tokens )
+	tree = parse_tokens( tokens )
 
 	delete( tokens )
 	delete( text )
 
-	integer i = 1
+	integer j = 1
 	sequence temp = {}
 
-	while i <= length( tree ) do
-		if tree[i][TTYPE] = T_BLOCK then
+	while j <= length( tree ) do
+		if tree[j][TTYPE] = T_BLOCK then
 			-- insert the matching block here
 
-			sequence block_name = tree[i][TDATA]
+			sequence block_name = tree[j][TDATA]
 
 			temp = map:get( blocks, block_name, {} )
-			tree = tree[1..i-1] & temp & tree[i+1..$]
+			tree = tree[1..j-1] & temp & tree[j+1..$]
 
-			i += length( temp )
+			j += length( temp )
 
 		end if
 
-		i += 1
+		j += 1
 	end while
 
 	delete( blocks )
 
-	return tree
+	return {tree,i}
+end function
+
+--
+-- Parse another template and include into this one verbatim.
+--
+public function include_template( sequence tree, integer i, sequence filename )
+
+	sequence text = read_file( filename )
+	sequence tokens = read_tokens( text )
+
+	tree = tree[1..i-1] & parse_tokens( tokens ) & tree[i+1..$]
+
+	delete( tokens )
+	delete( text )
+
+	return {tree,i}
 end function
 
 --
 -- Parse template text.
 --
-public function parse_template( sequence text, object response = {}, integer free_response = TRUE )
+public function parse_template( sequence text, object response = {}, integer free_response = TRUE, sequence filename = "" )
 
 	integer i = 1
-	sequence tokens = token_lexer( text )
-	sequence tree = token_parser( tokens )
+	sequence tokens = read_tokens( text )
+	sequence tree = parse_tokens( tokens )
 
 	while i <= length( tree ) do
-		-- look for a master template
+		-- look for a master template or include files
 
 		if tree[i][TTYPE] = T_EXTENDS then
 
-			sequence filename = tree[i][TDATA]
-			tree = extend_template( dequote(filename), tree )
+			sequence extend_filename = dequote( tree[i][TDATA] )
 
-			exit
+			if equal( filename, extend_filename ) then
+				log_crash( "template %s cannot extend itself", {filename} )
+			end if
+
+			{tree,i} = extend_template( tree, i, extend_filename )
+
+			exit -- only one 'extends' allowed per template
+
+		elsif tree[i][TTYPE] = T_INCLUDE then
+
+			sequence include_filename = tree[i][TDATA]
+
+			if equal( filename, include_filename ) then
+				log_crash( "template %s cannot include itself", {filename} )
+			end if
+
+			{tree,i} = include_template( tree, i, include_filename )
+
 		end if
 
 		i += 1
@@ -786,8 +813,15 @@ public function parse_template( sequence text, object response = {}, integer fre
 
 	-- allow response to be { {"key","value"}, ... } sequence
 	if sequence( response ) then
+		
+		if length( response ) = 2 and string( response[1] ) then
+			-- response is just {"key","value"}
+			response = {response}
+		end if
+		
 		response = map:new_from_kvpairs( response )
 		free_response = TRUE
+		
 	end if
 
 	integer j = 1
@@ -800,6 +834,7 @@ public function parse_template( sequence text, object response = {}, integer fre
 	end while
 
 	if free_response then
+		log_trace( "delete map %d", response )
 		delete( response )
 	end if
 
@@ -815,6 +850,7 @@ public function render_template( sequence filename, object response = {}, intege
 		filename = template_path & SLASH & filename
 	end if
 
+ifdef TEMPLATE_CACHE then
 	object text = map:get( m_template_cache, filename, 0 )
 
 	if atom( text ) then
@@ -822,11 +858,15 @@ public function render_template( sequence filename, object response = {}, intege
 		map:put( m_template_cache, filename, text )
 	end if
 
+elsedef
+	object text = read_file( filename )
+
+end ifdef
+
 	if atom( text ) then
-	--	log_error( "could not read template: %s", {filename} )
-		error:crash( "could not read template: %s", {filename} )
+		log_crash( "could not read template: %s", {filename} )
 	end if
 
-	return parse_template( text, response, free_response )
+	return parse_template( text, response, free_response, filename )
 end function
 
