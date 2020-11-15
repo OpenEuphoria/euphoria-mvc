@@ -1,10 +1,11 @@
 
 namespace curl_easy
 
-include std/dll.e
-include std/machine.e
 include std/convert.e
+include std/dll.e
 include std/error.e
+include std/filesys.e
+include std/machine.e
 
 constant TRUE = 1
 constant FALSE = 0
@@ -52,6 +53,8 @@ $
 
 end ifdef
 
+constant CURL_CA_BUNDLE = "curl-ca-bundle.crt"
+
 /*
  * NAME curl_easy_init()
  *
@@ -59,7 +62,72 @@ end ifdef
  *
  */
 public function curl_easy_init()
-	return c_func( _curl_easy_init, {} )
+
+	atom curl = c_func( _curl_easy_init, {} )
+
+	if curl = NULL then
+		return NULL
+	end if
+
+ifdef CURLOPT_VERBOSE then
+
+	-- allow the user to specify verbose on the command line
+	curl_easy_setopt( curl, CURLOPT_VERBOSE, TRUE )
+
+end ifdef
+
+ifdef WINDOWS then
+
+	-- N.B. On Windows, libcurl (really openssl) is supposed to use the Windows
+	-- certificate store to validate peer certificates. But that doesn't seem to
+	-- work reliably. We're provided a CA bundle with libcurl and that should be
+	-- installed next to libcurl.dll on the user's system, so we'll search for
+	-- it in the following directories and load it if it is found there.
+
+	sequence cmd = command_line()
+
+	-- this is the directory where Euphoria is installed, or the
+	-- directory of our exectuable if we're  bound or translated.
+	sequence euphoria_dir = pathname( cmd[1] )
+	sequence euphoria_bundle = euphoria_dir & SLASH & CURL_CA_BUNDLE
+
+	-- this is the directory where the application started, or the
+	-- directory of our exectuable if we're  bound or translated.
+	sequence startup_dir  = pathname( cmd[2] )
+	sequence startup_bundle = startup_dir & SLASH & CURL_CA_BUNDLE
+
+	-- libcurl_name comes from curl.e, which is the filename it loaded.
+	-- this may be in the current directory or the system PATH.
+	sequence libcurl_dir = pathname( locate_file(libcurl_name) )
+	sequence libcurl_bundle = libcurl_dir & SLASH & CURL_CA_BUNDLE
+
+	-- N.B. one or more of these may end up being the same value, such as
+	-- when we're running translated and installed in program directory on
+	-- a users system, where the application exe, libcurl DLL, and CA cert
+	-- bundle are all sitting right next to each other in the same folder.
+	-- it doesn't really matter though, since we only check for one file.
+
+	-- if you enable CURLOPT_VERBOSE, you should see a line that says
+	-- "successfully set certificate verify locations" followed by the
+	-- path of the CAfile that was discovered here.
+
+	if file_exists( startup_bundle ) then
+		-- use the CA bundle in the startup directory
+		curl_easy_setopt( curl, CURLOPT_CAINFO, startup_bundle )
+
+	elsif file_exists( libcurl_bundle ) then
+		-- use the CA bundle in the libcurl directory
+		curl_easy_setopt( curl, CURLOPT_CAINFO, libcurl_bundle )
+
+	elsif file_exists( euphoria_bundle ) then
+		-- use the CA bundle in the euphoria directory
+		curl_easy_setopt( curl, CURLOPT_CAINFO, euphoria_bundle )
+
+	end if
+
+end ifdef
+
+	return curl
 end function
 
 /*
@@ -364,6 +432,7 @@ public function curl_easy_getinfo_long( atom curl, integer option )
 
 	if result = CURLE_OK then
 		atom value = peek4s( param )
+
 		return {result,value}
 	end if
 
@@ -389,7 +458,7 @@ public function curl_easy_getinfo_double( atom curl, integer option )
 	if result = CURLE_OK then
 		sequence bytes = peek({ param, sizeof(C_DOUBLE) })
 		atom value = float64_to_atom( bytes )
-		
+
 		return {result,value}
 	end if
 
@@ -415,7 +484,7 @@ public function curl_easy_getinfo_slist( atom curl, integer option )
 	if result = CURLE_OK then
 		atom slist = peek_pointer( param )
 		sequence value = curl_slist_values( slist )
-		
+
 		return {result,value}
 	end if
 
@@ -464,6 +533,7 @@ public function curl_easy_getinfo_off_t( atom curl, integer option )
 
 	if result = CURLE_OK then
 		atom value = peek8s( param )
+
 		return {result,value}
 	end if
 
