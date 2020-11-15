@@ -4,12 +4,13 @@ namespace session
 include std/convert.e
 include std/error.e
 include std/filesys.e
-include std/map.e
+--include std/map.e
 
 include mvc/app.e
 include mvc/cookie.e
 include mvc/hooks.e
 include mvc/logger.e
+include mvc/mapdbg.e as map
 
 constant SESSION_CHARS = "abcdefghijklmnopqrstuvwxyz" &
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

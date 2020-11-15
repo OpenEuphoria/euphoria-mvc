@@ -2,8 +2,10 @@
 namespace mimetype
 
 include std/filesys.e
-include std/map.e
+--include std/map.e
 include std/text.e
+
+include mvc/mapdbg.e as map
 
 --
 -- Incomplete list of MIME types

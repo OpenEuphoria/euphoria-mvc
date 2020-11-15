@@ -3,7 +3,7 @@ namespace model
 
 include std/convert.e
 include std/error.e
-include std/map.e
+--include std/map.e
 include std/math.e
 include std/pretty.e
 include std/search.e
@@ -13,6 +13,7 @@ include std/types.e
 
 include mvc/logger.e
 include mvc/database.e
+include mvc/mapdbg.e as map
 
 sequence model_names = {}
 sequence model_fields = {}

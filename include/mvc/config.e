@@ -4,11 +4,13 @@ namespace config
 include std/convert.e
 include std/filesys.e
 include std/io.e
-include std/map.e
+--include std/map.e
 include std/search.e
 include std/sequence.e
 include std/text.e
 include std/types.e
+
+include mvc/mapdbg.e as map
 
 map m_config = map:new()
 

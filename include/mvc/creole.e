@@ -10,11 +10,13 @@ include std/sequence.e as seq
 include std/search.e as search
 include std/text.e
 include std/math.e
-include std/map.e
+--include std/map.e
 include std/types.e
 include std/sort.e
 include std/map.e
 include std/filesys.e
+
+include mvc/mapdbg.e as map
 
 include euphoria/syncolor.e
 

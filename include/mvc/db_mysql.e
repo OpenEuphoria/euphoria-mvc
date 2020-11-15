@@ -2,7 +2,7 @@ namespace db_mysql
 
 include std/dll.e
 include std/machine.e
-include std/map.e
+--include std/map.e
 include std/net/url.e
 include std/pretty.e
 include std/search.e
@@ -11,6 +11,7 @@ include std/types.e
 include db/mysql.e
 include mvc/database.e
 include mvc/logger.e
+include mvc/mapdbg.e as map
 
 constant MYSQL = add_protocol( "mysql" )
 

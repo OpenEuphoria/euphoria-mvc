@@ -1,11 +1,12 @@
 
 namespace headers
 
-include std/map.e
+--include std/map.e
 include std/text.e
 include std/types.e
 
 include mvc/logger.e
+include mvc/mapdbg.e as map
 
 -- name -> value headers
 export map m_headers = map:new()

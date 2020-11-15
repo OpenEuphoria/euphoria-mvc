@@ -2,27 +2,24 @@
 namespace cookie
 
 include std/datetime.e
-include std/map.e
+--include std/map.e
 include std/text.e
 
+include mvc/mapdbg.e as map
 include mvc/headers.e
 include mvc/utils.e
 
-map m_cookie
+map m_cookie = map:new()
 
 --
 -- Parse HTTP_COOKIE and cache it in a map.
 --
 public procedure parse_cookie()
 
-    if not object( m_cookie ) then
+    sequence http_cookie = getenv( "HTTP_COOKIE" )
+    sequence cookie_pairs = keyvalues( http_cookie, ";", "=", "\"" )
 
-        sequence http_cookie = getenv( "HTTP_COOKIE" )
-        sequence cookie_pairs = keyvalues( http_cookie, ";", "=", "\"" )
-
-        m_cookie = map:new_from_kvpairs( cookie_pairs )
-
-    end if
+    m_cookie = map:new_from_kvpairs( cookie_pairs )
 
 end procedure
 

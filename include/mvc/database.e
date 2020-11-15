@@ -1,7 +1,7 @@
 
 namespace database
 
-include std/map.e
+--include std/map.e
 include std/net/url.e
 include std/pretty.e
 include std/search.e
@@ -9,6 +9,7 @@ include std/text.e
 include std/types.e
 
 include mvc/logger.e
+include mvc/mapdbg.e as map
 
 public enum
 -- handler ids
