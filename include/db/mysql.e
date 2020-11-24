@@ -12,13 +12,13 @@ include std/error.e
 include std/map.e
 
 ifdef WINDOWS then
-	atom libmysql = open_dll({ "libmariadb.dll", "libmysql.dll" })
+export atom libmysql = open_dll({ "libmariadb.dll", "libmysql.dll" })
 
 elsifdef LINUX then
-	atom libmysql = open_dll({ "libmysqlclient.so.20", "libmysqlclient.so" })
+export atom libmysql = open_dll({ "libmariadb.so.3", "libmysqlclient.so.20" })
 
 elsedef
-	error:crash( "Platform not supported." )
+error:crash( "Platform not supported" )
 
 end ifdef
 
