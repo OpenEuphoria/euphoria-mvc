@@ -162,7 +162,7 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 
 	delete( client_sock )
 
-	print_maps()
+	--print_maps()
 
 end procedure
 
