@@ -5,7 +5,7 @@
 include std/io.e
 include mvc/json.e
 
-export procedure main()
+procedure main()
 
     sequence cmd = command_line()
     if length( cmd ) < 4 then

@@ -8,7 +8,7 @@ include mvc/json.e
 constant TRUE = 1
 constant FALSE = 0
 
-export procedure main()
+procedure main()
 
     sequence data = {}
     sequence cmd = command_line()
