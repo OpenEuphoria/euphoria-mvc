@@ -3,6 +3,7 @@ namespace app
 
 include std/convert.e
 include std/error.e
+include std/filesys.e
 --include std/map.e
 include std/io.e
 include std/pretty.e
@@ -15,6 +16,7 @@ include std/types.e
 include std/utils.e
 
 include mvc/logger.e
+include mvc/mimetype.e
 include mvc/template.e
 include mvc/mapdbg.e as map
 
@@ -332,6 +334,27 @@ public function url_for( sequence route_name, object response = {} )
 	log_trace( "route_name = %s, route_path = %s", {route_name,route_path} )
 
 	return route_path
+end function
+
+--
+-- Return the contents of a file and prompt the browser to download it.
+--
+public function download_file( sequence filename, sequence path=filename )
+
+	filename = filesys:filename( filename )
+	path = filesys:canonical_path( path )
+
+	log_debug( "filename = %s, path = %s", {filename,path} )
+
+	if not file_exists( path ) then
+		sequence message = sprintf( "Filename \"%s\" was not found on the server.", {filename} )
+		return response_code( 404,, message )
+	end if
+
+	header( "Content-Type", get_mime_type(filename) )
+	header( "Content-Disposition", `attachment; filename="%s"`, {filename} )
+
+	return read_file( path )
 end function
 
 --
