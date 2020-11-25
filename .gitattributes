@@ -1,0 +1,12 @@
+# Ignore SQLite3 vendor files
+src/sqlite3* linguist-vendored
+
+# Ignore all unit test files
+tests/* -linguist-detectable
+
+# Reclassify HTML templates
+templates/*.html linguist-language=HTML+Euphoria
+
+# Re-classify Euphoria files
+*.e linguist-language=Euphoria
+*.ex linguist-language=Euphoria
