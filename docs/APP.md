@@ -83,15 +83,33 @@ When running applications via CGI, the web server will pass its identity signatu
 
 ## Application routines
 
+* [`download_file`](#download_file)
 * [`get_current_route`](#get_current_route)
 * [`get_current_path`](#get_current_path)
 * [`redirect`](#redirect)
 * [`response_code`](#response_code)
 * [`route`](#route)
 * [`run`](#run)
+* [`send_file`](#send_file)
 * [`set_error_page`](#set_error_page)
 * [`set_server_signature`](#set_server_signature)
 * [`url_for`](#url_for)
+
+### download_file
+
+`include mvc/app.e`  
+`public function download_file( sequence filename, sequence path=filename )`
+
+Sends the appropriate MIME type for the file and tells the browser to force a download, and then returns the raw file data.
+
+**Parameters**
+
+- **`filename`** - the filename to send to the browser
+- **`path`** - path to the file to send, if different from the filename
+
+**Remarks**
+
+Download file will send the `Content-Disposition` header telling the browser that the file is an _attachment_, prompting it to be downloaded. If you just want to send file data to the browser, use [`send_file`](#send_file) instead.
 
 ### get_current_route
 
@@ -104,6 +122,10 @@ Return the current route name.
 
 - __none__
 
+**Remarks**
+
+The value returned from this function is only valid in a route handler. Do not call this function elsewhere.
+
 ### get_current_path
 
 `include mvc/app.e`  
@@ -115,12 +137,16 @@ Return the current route path.
 
 - __none__
 
+**Remarks**
+
+The value returned from this function is only valid in a route handler. Do not call this function elsewhere.
+
 ### redirect
 
 `include mvc/app.e`  
 `public function redirect( sequence url, integer code = 302 )`
 
-Returns an HTTP redirect code to send the browser to the provided URL. Also puts a link on the page in case the redirect does not work. We recommend using **`url_for()`** for this.
+Sets the appropriate HTTP header to trigger a redirect and returns the response page content to send the browser. Also puts a link on the page in case the redirect does not work. We recommend using **`url_for()`** for this.
 
 **Parameters**
 
@@ -132,7 +158,7 @@ Returns an HTTP redirect code to send the browser to the provided URL. Also puts
 `include mvc/app.e`  
 `public function response_code( integer code, sequence status = "", sequence message = "" )`
 
-Return a response code with optional status (the description) and message (displayed on the page).
+Sets the appropriate HTTP header for the response code and returns the response page content to send to the browser.
 
 **Parameters**
 
@@ -140,17 +166,22 @@ Return a response code with optional status (the description) and message (displ
 - **`status`** - an optional status description (e.g. `"Not Found"`)
 - **`message`** - an optional status message
 
+**Remarks**
+
+The default response code is `200 OK` for routes that exist and `404 Not Found` for routes that do not. This is used internally by [`redirect`](#redirect).
+
 ### route
 
 `include mvc/app.e`  
-`public procedure route( sequence path, sequence name = get_route_name(path), integer func_id = routine_id(name) )`
+`public procedure route( sequence path, sequence name = get_route_name(path), sequence methods = {"GET"}, integer func_id = routine_id(name) )`
 
 Assign a route path to a handler function. The **`route()`** function will automatically convert your **`path`** to a **`name`** and then lookup that function.
 
 **Parameters**
 
 - **`path`** - route path, see [Defining routes](#defining-routes) for details
-- **`name`** - route name, used mostly by **`url_for()`**.
+- **`name`** - route name, used to find your function and by * [`url_for`](#url_for)
+- **`methods`** - valid methods for this route, default is just `"GET"`
 - **`func_id`** - the routine_id() of the handler function
 
 ### run
@@ -164,17 +195,41 @@ Entry point for the application when running in CGI. Call this routine after you
 
 - __none__
 
+### send_file
+
+`include mvc/app.e`  
+`public function send_file( sequence path )`
+
+Sends the appropriate MIME type for the file and returns the raw file data.
+
+**Parameters**
+
+- **`path`** - path to the file data to send
+
+**Remarks**
+
+This should be used when you need to return the content of a local file to the browser. This is useful for providing static files that are not served by your web server, or when using the development server provided in Euphoria MVC.
+
 ### set_error_page
 
 `include mvc/app.e`  
 `public procedure set_error_page( integer error_code, sequence error_page )`
 
-Set the error page template defined for the response code.
+Set the error page template defined for the response code. The `error_page` content will be sent whenever `error_code` is sent to [`response_code`](#response_code).
 
 **Parameters**
 
 - **`error_code`** - the HTTP error code for this page
 - **`error_page`** - the HTML template to render for this page
+
+**Remarks**
+
+Your error_page content can be a template and will be rendered with the following variables:
+
+- **`title`** - the title of the message is always the HTTP error code and status, e.g. `"404 Not Found"`
+- **`status`** - the status message as defined by the error code, or provided via [`response_code`](#response_code), e.g. `"Not Found"`
+- **`message`** - a brief message provided via [`response_code`](#response_code)
+- **`signature`** - the server's signature, from the `SERVER_SIGNATURE` environment variable
 
 ### set_server_signature
 
@@ -188,6 +243,10 @@ Override the default `SERVER_SIGNATURE` environment variable.
 - **`signature`** - the new signature to display
 - **`data`** - this data will be `printf`'d into the signature value
 
+**Remarks**
+
+This is used internally by the Euphoria MVC [SERVER.md](development server).
+
 ### url_for
 
 `include mvc/app.e`  
@@ -200,3 +259,6 @@ Builds a URL from a route using the optional response object.
 - **`name`** - the name of requested the route url
 - **`response`** - the optional response object containing variables for the URL
 
+**Remarks**
+
+The response object must contain matching keys for variables specified in your route. See [Defining routes](#defining-routes) for details.
