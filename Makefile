@@ -14,6 +14,12 @@ EUC = euc
 
 MAKEFLAGS += --no-print-directory --output-sync=target
 
+HTMLTOOLS_TARGET = build/htmlparse$(EXE_EXT)
+HTMLTOOLS_EUCFLAGS = -batch -keep -makefile -silent -build-dir="$(patsubst tools/html%.ex,build/html%.d,$^)"
+HTMLTOOLS_OUTPUT = $(patsubst tools/html%.ex,build/html%$(EXE_EXT),$^)
+HTMLTOOLS_BUILDDIR = $(patsubst build/html%$(EXE_EXT),build/html%.d,$@)
+HTMLTOOLS_MAKEFILE = $(patsubst build/html%$(EXE_EXT),html%.mak,$@)
+
 JSONTOOLS_TARGET = build/jsonconv$(EXE_EXT) build/jsonfetch$(EXE_EXT) build/jsontidy$(EXE_EXT)
 JSONTOOLS_EUCFLAGS = -batch -keep -makefile -silent -build-dir="$(patsubst tools/json%.ex,build/json%.d,$^)"
 JSONTOOLS_OUTPUT = $(patsubst tools/json%.ex,build/json%$(EXE_EXT),$^)
@@ -30,20 +36,30 @@ SQLITE3_CFLAGS =  -O2 -Isrc \
 	-DSQLITE_ENABLE_RBU
 SQLITE3_LDFLAGS = -shared
 
-all : jsontools sqlite3
+all : htmltools jsontools sqlite3
+
+htmltools : $(HTMLTOOLS_TARGET)
 
 jsontools : $(JSONTOOLS_TARGET)
 
+build/htmlparse.d/htmlparse.mak : tools/htmlparse.ex | build/htmlparse.d
 build/jsonconv.d/jsonconv.mak   : tools/jsonconv.ex  | build/jsonconv.d
 build/jsonfetch.d/jsonfetch.mak : tools/jsonfetch.ex | build/jsonfetch.d
 build/jsontidy.d/jsontidy.mak   : tools/jsontidy.ex  | build/jsontidy.d
 
+build/htmlparse.d/htmlparse.mak :
+	$(EUC) $(HTMLTOOLS_EUCFLAGS) -o $(HTMLTOOLS_OUTPUT) $^
+
 build/jsonconv.d/jsonconv.mak build/jsonfetch.d/jsonfetch.mak build/jsontidy.d/jsontidy.mak:
 	$(EUC) $(JSONTOOLS_EUCFLAGS) -o $(JSONTOOLS_OUTPUT) $^
 
+build/htmlparse$(EXE_EXT) : build/htmlparse.d/htmlparse.mak | build
 build/jsonconv$(EXE_EXT)  : build/jsonconv.d/jsonconv.mak | build
 build/jsonfetch$(EXE_EXT) : build/jsonfetch.d/jsonfetch.mak | build
 build/jsontidy$(EXE_EXT)  : build/jsontidy.d/jsontidy.mak | build
+
+$(HTMLTOOLS_TARGET):
+	$(MAKE) -C $(HTMLTOOLS_BUILDDIR) -f $(HTMLTOOLS_MAKEFILE)
 
 $(JSONTOOLS_TARGET):
 	$(MAKE) -C $(JSONTOOLS_BUILDDIR) -f $(JSONTOOLS_MAKEFILE)
@@ -56,11 +72,11 @@ build/sqlite3.d/sqlite3.o : src/sqlite3.c | build/sqlite3.d
 $(SQLITE3_TARGET) : build/sqlite3.d/sqlite3.o | src/sqlite3.h src/sqlite3ext.h
 	$(LD) $(SQLITE3_LDFLAGS) -o $@ $^
 
-build build/jsonconv.d build/jsonfetch.d build/jsontidy.d build/sqlite3.d :
+build build/htmlparse.d build/jsonconv.d build/jsonfetch.d build/jsontidy.d build/sqlite3.d :
 ifeq ($(OS),Windows_NT)
 	@mkdir $(subst /,\,$@)
 else
 	@mkdir -p $@
 endif
 
-.PHONY : all jsontools sqlite3
+.PHONY : all htmltools jsontools sqlite3
