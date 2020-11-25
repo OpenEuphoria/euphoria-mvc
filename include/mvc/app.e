@@ -351,8 +351,28 @@ public function download_file( sequence filename, sequence path=filename )
 		return response_code( 404,, message )
 	end if
 
-	header( "Content-Type", get_mime_type(filename) )
+	header( "Content-Type", get_mime_type(path) )
 	header( "Content-Disposition", `attachment; filename="%s"`, {filename} )
+
+	return read_file( path )
+end function
+
+--
+-- Return the contents of a file directly (and let the browser decide).
+--
+public function send_file( sequence path )
+
+	path = filesys:canonical_path( path )
+
+	log_debug( "path = %s", {path} )
+
+	if not file_exists( path ) then
+		sequence filename = filesys:filename( path )
+		sequence message = sprintf( "Filename \"%s\" was not found on the server.", {filename} )
+		return response_code( 404,, message )
+	end if
+
+	header( "Content-Type", get_mime_type(path) )
 
 	return read_file( path )
 end function
