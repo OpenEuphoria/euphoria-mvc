@@ -287,8 +287,8 @@ public function url_for( sequence route_name, object response = {} )
 
 	sequence default = "#" & route_name
 
-	regex pattern = map:get( m_names, route_name, "" )
-	if length( pattern ) = 0 then
+	object pattern = map:get( m_names, route_name, "" )
+	if not regex( pattern ) or length( pattern ) = 0 then
 		return default
 	end if
 
@@ -300,6 +300,10 @@ public function url_for( sequence route_name, object response = {} )
 	sequence route_path = route_data[ROUTE_PATH]
 
 	-- TODO: this should match the parsing of route()
+
+	if sequence( response ) and length( response ) then
+		response = map:new_from_kvpairs( response )
+	end if
 
 	if map( response ) then
 
