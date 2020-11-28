@@ -207,7 +207,7 @@ enum
 	SLOT_KEY,
 	SLOT_VALUE
 
-procedure print_map( atom m )
+public procedure print_map( atom m, integer nested=0, integer indent=pretty_options[INDENT], integer column=pretty_options[START_COLUMN] )
 
 	sequence mapdef = get_mapdef( m )
 
@@ -215,8 +215,6 @@ procedure print_map( atom m )
 	sequence map_file = mapdef[MAPDEF_FILE]
 	integer  map_line = mapdef[MAPDEF_LINE]
 
-	integer indent = pretty_options[INDENT]
-	integer column = pretty_options[START_COLUMN]
 	sequence padding = repeat( ' ', (column-1)*indent )
 
 	puts( 1, padding )
@@ -250,7 +248,13 @@ end if
 			printf( 1, "%4d: {0x%08x,", {i,slot_hash} )
 			pretty_print( 1, slot_key, pretty_options )
 			puts( 1, "," )
-			pretty_print( 1, slot_val, pretty_options )
+
+			if stdmap:map( slot_val ) and nested != 0 then
+				print_map( slot_val, nested-1, indent, column+1 )
+			else
+				pretty_print( 1, slot_val, pretty_options )
+			end if
+
 			puts( 1, "}" )
 
 			if i < length( map_slots ) then

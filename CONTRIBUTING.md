@@ -37,6 +37,8 @@ https://openeuphoria.org/forum/).
 
 * Ask any question about how to use Euphoria MVC on the [OpenEuphoria Forum](https://openeuphoria.org/forum/).
 
+#### **Thank you for contributing!**
+
 Euphoria MVC is a volunteer community effort. We encourage everyone to pitch in!
 
 :heart: OpenEuphoria Group

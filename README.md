@@ -1,64 +1,56 @@
 # Euphoria MVC
 
-**Euphoria MVC** is a model-view-controller application framework for [Euphoria](https://githubc.com/OpenEuphoria/Euphoria).
+**Euphoria MVC** is a [model-view-controller](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller) application framework for [Euphoria](https://github.com/OpenEuphoria/euphoria).
 
 ## Project status
 
-This project is in the very early stages of development. Things can and will break or change until we reach a stable release.
+This project is still in the very early stages of development. Things can and will break or change until we reach a stable release. Documentation is not yet complete. Please see [CONTRIBUTING](CONTRIBUTING.md) for details on how to submit bug reports, feature requests, or if you'd like to contribute to the project directly.
 
 ## Features
 
-### [Templates](docs/TEMPLATE.md)
+### Stable modules
 
-Build your views in HTML and then render your data to the page.
+These modules are fairly mature and operational.
 
-### [Routing](docs/APP.md)
+* [mvc/app.e](docs/APP.md) -- application routing
+* [mvc/config.e](docs/CONFIG.md) -- configuration files
+* [mvc/headers.e](docs/HEADERS.md) -- send HTTP headers
+* [mvc/logger.e](docs/LOGGER.md) -- console and file logging
+* [mvc/mimetype.e](docs/MIMETYPE.md) -- MIME type database
+* [mvc/server.e](docs/SERVER.md) -- development web server
+* [mvc/template.e](docs/TEMPLATE.md) -- document templates
+* [mvc/utils.e](docs/UTILS.md) -- miscellaneous utilities
 
-Automatically route static or dynamic paths to handler functions.
+### Work in progress
 
-### [Database](docs/DATABASE.md)
+These modules function as-is but still need some improvements.
 
-Execute queries on any (well, most) database systems from one codebase.
+* [mvc/cookie.e](docs/COOKIE.md) -- manage HTTP cookies
+* [mvc/creole.e](docs/CREOLE.md) -- Creole markup to HTML
+* [mvc/database.e](docs/DATABASE.md) -- database connections
+  * [mvc/db_mysql.e](docs/DB_MYSQL.md)
+  * [mvc/db_sqlite3.e](docs/DB_MYSQL.md)
+* [mvc/mapdbg.e](docs/MAPDBG.md) -- debugging for std/map.e
+* [mvc/session.e](docs/SESSION.md) -- manage HTTP sessions
+* [mvc/strbuf.e](docs/STRBUF.md) -- string buffer (for CURL)
 
-### [Models](docs/MODEL.md)
+### Experimental
 
-Easily store and fetch Euphoria data via object-relation mapping (ORM).
+These modules are not yet stablized and are subject to change.
 
-### [Server](docs/SERVER.md)
+* [mvc/hooks.e](docs/HOOKS.md) -- hooks for mvc/app.e
+* [mvc/html.e](docs/HTML.md) -- HTML parser
+* [mvc/json.e](docs/JSON.md) -- JSON parser
+* [mvc/model.e](docs/MODEL.md) -- database object mapping
 
-Includes a built-in development server so you can get started right away.
+### Third-party
 
-### [JSON](docs/JSON.md)
+These modules are based on third-party libraries or services.
 
-Developing web applications requires speaking JSON.
-
-### [CURL](docs/CURL.md)
-
-Web applications may need to speak to the outside world.
-
-### [Config](docs/CONFIG.md)
-
-Load and store data in configuration (INI-like) files.
-
-### [Cookies](docs/COOKIE.md)
-
-Store snippits of data with your end users.
-
-### [Sessions](docs/SESSION.md)
-
-Store more data locally with minimal cookies.
-
-### [Logger](docs/LOGGER.md)
-
-Output runtime messages to the console in fancy colored text!
-
-### [Mimetype](docs/MIMETYPE.md)
-
-A quick-and-dirty table of MIME types based on file extension.
-
-### [Utils](docs/UTILS.md)
-
-Other miscellaneous functions.
+* [curl/curl.e](docs/CURL.md) -- wrapper for libcurl
+* [db/mysql.e](docs/MYSQL.md) -- wrapper for libmysqlclient or libmariadb
+* [db/replit.e](docs/REPLIT.md) -- wrapper for [Repl.it Database](https://docs.repl.it/misc/database)
+* [db/sqlite3.e](docs/SQLITE.md) -- wrapper for libsqlite3
 
 ## Getting Started
 
@@ -136,46 +128,44 @@ This example assumes you are running Apache 2.4 on Linux and that you've already
 
 ### Download Euphoria
 
-    wget "http://sourceforge.net/projects/rapideuphoria/files/Euphoria/4.1.0-beta2/euphoria-4.1.0-Linux-x64-57179171dbed.tar.gz/download" -O euphoria-4.1.0-Linux-x64-57179171dbed.tar.gz
+    cd ~/Downloads
+    wget "https://sourceforge.net/projects/rapideuphoria/files/Euphoria/4.1.0-beta2/euphoria-4.1.0-Linux-x64-57179171dbed.tar.gz/download" -O euphoria-4.1.0-Linux-x64-57179171dbed.tar.gz
     sudo tar xzf euphoria-4.1.0-Linux-x64-57179171dbed.tar.gz -C /usr/local/
 
 ### Install Euphoria
 
     cd /usr/local/bin/
-    sudo find /usr/local/euphoria-4.1.0-Linux-x64/bin/ -type f -executable -exec ln -s {} \;
+    sudo find /usr/local/euphoria-4.1.0-Linux-x64/bin/ -type f -executable -exec ln -vs {} \;
 
-### Get Euphoria MVC
+### Install Euphoria MVC
 
-Check out euphoria-mvc into your project directory
+    sudo git clone https://github.com/OpenEuphoria/euphoria-mvc /opt/OpenEuphoria/euphoria-mvc
+    sudo chown -vR www-root:www-root /opt/OpenEuphoria/euphoria-mvc
 
-    git clone https://github.com/openeuphoria/euphoria-mvc
+### Update your web root
 
-Or if you're already using git, check out as a submodule.
+    cd /var/www/html
+    printf "[all]\n-i /opt/OpenEuphoria/euphoria-mvc/include\n" | sudo tee eu.cfg
 
-    git add submodule https://github.com/openeuphoria/euphoria-mvc
+Move your `index.esp` and other project files to this directory.
 
-### Configure Euphoria
+### Add CGI handler
 
-Update your `eu.cfg` to use euphoria-mvc/include.
+Tell Apache you want it to execute Euphoria scripts and use index.esp as the index. This would generally go into a `<Directory>` directive in the site's configuration file, or directly into the local `.htaccess` file.
 
-    [all]
-    -i euphoria-mvc/include
-
-### Update .htaccess
-
-Tell Apache you want it to execute Euphoria scripts and use index.esp as the index.
-
+    # Add CGI handler for index.esp
     AddHandler cgi-script .esp
-    Options +ExecCGI
     DirectoryIndex index.esp
+    Options +ExecCGI
 
+    # Send all non-existant paths to index.esp
     RewriteEngine On
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^(.*)$ index.esp/$1 [L,NS]
 
 You can also add a block like this to keep snoopers out of certain files:
 
-    <Files ~ ".cfg$|.err$|.edb$">
+    <Files ~ ".(cfg|err|edb)$">
 	    Deny from all
     </Files>
 

@@ -369,6 +369,7 @@ public function send_file( sequence path )
 	path = filesys:canonical_path( path )
 
 	log_debug( "path = %s", {path} )
+	log_debug( "exists = %d", {file_exists(path)} )
 
 	if not file_exists( path ) then
 		sequence filename = filesys:filename( path )
