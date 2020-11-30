@@ -2,6 +2,7 @@
 namespace template
 
 include std/convert.e
+include std/datetime.e
 include std/error.e
 include std/filesys.e
 include std/get.e
@@ -16,6 +17,7 @@ include std/types.e
 include std/utils.e
 
 include mvc/logger.e
+include mvc/config.e
 include mvc/mapdbg.e as map
 
 constant NULL = 0
@@ -145,18 +147,22 @@ public function call_function( sequence func_name, sequence values = {} )
 		log_crash( "function %s not found", {func_name} )
 	end if
 
-	integer start = length( values ) + 1
-	integer stop = length( params )
+	if length( params ) > length( values ) then
 
-	for i = start to stop do
+		integer start = length( values ) + 1
+		integer stop = length( params )
 
-		if not default_param( params[i] ) then
-			log_crash( "function %s does not provide a default value for param %s", {func_name,params[i]} )
-		end if
+		for i = start to stop do
 
-		values = append( values, params[i][2] )
+			if not default_param( params[i] ) then
+				log_crash( "function %s does not provide a default value for param %s", {func_name,params[i]} )
+			end if
 
-	end for
+			values = append( values, params[i][2] )
+
+		end for
+
+	end if
 
 	return call_func( func_id, values )
 end function
@@ -165,90 +171,92 @@ end function
 -- Built-in functions
 --
 
---
 -- atom()
---
 function _atom( object x )
 	return atom( x )
 end function
 
---
 -- integer()
---
 function _integer( object x )
 	return integer( x )
 end function
 
---
 -- sequence()
---
 function _sequence( object x )
 	return sequence( x )
 end function
 
---
 -- object()
---
 function _object( object x )
 	return object( x )
 end function
 
---
 -- equal()
---
 function _equal( object a, object b )
     return equal( a, b )
 end function
 
---
 -- not_equal()
---
 function _not_equal( object a, object b )
     return not equal( a, b )
 end function
 
---
 -- length()
---
 function _length( object x )
 	return length( x )
 end function
 
---
 -- not()
---
 function _not( object x )
 	return equal( x, 0 ) or equal( x, "" )
 end function
 
---
 -- and()
---
 function _and( object a, object b )
 	return a and b
 end function
 
---
 -- or()
---
 function _or( object a, object b )
 	return a or b
 end function
 
---
 -- xor()
---
 function _xor( object a, object b )
 	return a xor b
 end function
 
---
 -- pretty()
---
 function _pretty( object x, object p )
 	return pretty_sprint( x, p )
 end function
 
+-- add()
+function _add( object a, object b )
+	return a + b
+end function
+
+-- subtract()
+function _subtract( object a, object b )
+	return a - b
+end function
+
+-- multiply()
+function _multiply( object a, object b )
+	return a * b
+end function
+
+-- divide()
+function _divide( object a, object b )
+	return a / b
+end function
+
+-- isset()
+function _isset( object k, object m )
+	return map( m ) and map:has( m, k )
+end function
+
+-- template functions
 add_function( "atom",      {"x"},     routine_id("_atom") )
 add_function( "integer",   {"x"},     routine_id("_integer") )
 add_function( "sequence",  {"x"},     routine_id("_sequence") )
@@ -261,6 +269,22 @@ add_function( "and",       {"a","b"}, routine_id("_and") )
 add_function( "or",        {"a","b"}, routine_id("_or") )
 add_function( "xor",       {"a","b"}, routine_id("_xor") )
 add_function( "pretty",    {"x",{"p",PRETTY_DEFAULT}}, routine_id("_pretty") )
+add_function( "add",       {"a","b"}, routine_id("_add") )
+add_function( "subtract",  {"a","b"}, routine_id("_subtract") )
+add_function( "multiply",  {"a","b"}, routine_id("_multiply") )
+add_function( "divide",    {"a","b"}, routine_id("_divide") )
+add_function( "isset",     {"x",{"k",NULL}}, routine_id("_isset") )
+
+-- datetime functions
+add_function( "format_date", {"d",{"f","%Y-%m-%d"}}, routine_id("datetime:format") )
+add_function( "format_time", {"t",{"f","%H:%M:%S"}}, routine_id("datetime:format") )
+add_function( "dt", {"d",{"f","%Y-%m-%d %H:%M:%S"}}, routine_id("datetime:format") )
+
+-- configuration functions
+add_function( "get_comment", {"keys",{"one_string",TRUE},{"sep",DEFAULT_SEPARATOR}}, routine_id("get_comment") )
+add_function( "has_comment", {"keys",{"sep",DEFAULT_SEPARATOR}}, routine_id("has_comment") )
+add_function( "get_config", {"keys",{"default",DEFAULT_VALUE},{"sep",DEFAULT_SEPARATOR}}, routine_id("get_config") )
+add_function( "has_config", {"keys",{"sep",DEFAULT_SEPARATOR}}, routine_id("has_config") )
 
 --
 -- Template token lexer.
@@ -448,11 +472,16 @@ public function parse_value( sequence data, object response )
 		sequence func_name = matches[2]
 		sequence func_params = matches[3]
 
-		func_params = keyvalues( func_params, ",", "=", "\"" )
+		func_params = keyvalues( func_params, ",", "=", "\"'" )
 
 		for i = 1 to length( func_params ) do
 			func_params[i] = parse_value( func_params[i][2], response )
 		end for
+
+		if equal( func_name, "isset" ) and length( func_params ) < 2 then
+			-- manually pass the current response object to isset() function
+			func_params = append( func_params, response )
+		end if
 
 		var_value = call_function( func_name, func_params )
 
