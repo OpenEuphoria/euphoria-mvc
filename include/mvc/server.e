@@ -162,7 +162,9 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 
 	delete( client_sock )
 
-	--print_maps()
+	ifdef MAPDBG then
+		print_maps()
+	end ifdef
 
 end procedure
 

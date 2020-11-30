@@ -1,6 +1,12 @@
 
 namespace mapdbg
 
+ifdef not MAPDBG then
+
+public include std/map.e
+
+elsedef
+
 include std/eumem.e
 include std/filesys.e
 include std/io.e
@@ -208,6 +214,11 @@ enum
 	SLOT_VALUE
 
 public procedure print_map( atom m, integer nested=0, integer indent=pretty_options[INDENT], integer column=pretty_options[START_COLUMN] )
+
+	if not map( m ) then
+		log_warn( "Value m (%s) proved to print_map() is not a map", {m} )
+		return
+	end if
 
 	sequence mapdef = get_mapdef( m )
 
@@ -429,3 +440,4 @@ public function for_each( map source_map, integer user_rid, object user_data = 0
 	return stdmap:for_each( source_map, user_rid, user_data, in_sorted_order, signal_boundary )
 end function
 
+end ifdef -- MAPDBG

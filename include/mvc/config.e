@@ -14,9 +14,9 @@ include std/types.e
 include mvc/logger.e
 include mvc/mapdbg.e as map
 
-constant DEFAULT_CATEGORY = "default"
-constant DEFAULT_SEPARATOR = '.'
-constant DEFAULT_VALUE = ""
+export constant DEFAULT_CATEGORY = "default"
+export constant DEFAULT_SEPARATOR = '.'
+export constant DEFAULT_VALUE = ""
 
 -- configuration state
 object m_config = map:new()
@@ -166,8 +166,10 @@ public function load_config( object filename )
 		close( fn )
 	end if
 
-	print_map( m_config, 1 )
-	print_map( m_comment, 1 )
+	ifdef MAPDBG then
+		print_map( m_config, 1 )
+		print_map( m_comment, 1 )
+	end ifdef
 
 	return TRUE
 end function
