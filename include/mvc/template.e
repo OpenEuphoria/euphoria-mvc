@@ -425,6 +425,22 @@ constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9\.]+)(\[(?:[\w\"\'\.]|\
 constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]+)\((.*)\)$` )
 
 --
+-- Returns TRUE is a string starts and ends with "" or ''
+--
+public function is_quoted( sequence str )
+
+	if search:begins( '"', str ) and search:ends( '"', str ) then
+		return TRUE
+
+	elsif search:begins( '\'', str ) and search:ends( '\'', str ) then
+		return TRUE
+
+	end if
+
+	return FALSE
+end function
+
+--
 -- Parse a variable or function or literal value.
 --
 public function parse_value( sequence data, object response )
@@ -454,11 +470,20 @@ public function parse_value( sequence data, object response )
 
 			for i = 1 to length( subscript ) do
 
-				subscript[i] = parse_value( subscript[i], response )
+				if map( var_value ) and is_quoted( subscript[i] ) then
 
-				if valid_index( var_value, subscript[i] ) then
-					var_value = var_value[subscript[i]]
+					subscript[i] = text:trim(  subscript[i], "\"'" )
+					var_value = map:get( var_value, subscript[i] )
+
+				else
+
+					subscript[i] = parse_value( subscript[i], response )
+					if valid_index( var_value, subscript[i] ) then
+						var_value = var_value[subscript[i]]
+					end if
+
 				end if
+
 
 			end for
 
