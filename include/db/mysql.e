@@ -22,7 +22,9 @@ error:crash( "Platform not supported" )
 
 end ifdef
 
-
+if libmysql = NULL then
+	error:crash( "libmysql not found!" )
+end if
 
 function allocate_string( sequence str, integer cleanup = 0 )
 
