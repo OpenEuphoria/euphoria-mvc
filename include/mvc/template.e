@@ -70,6 +70,8 @@ public constant
 	T_INCLUDE       = new_token( "T_INCLUDE",     `^{%\s*include\s+(.+?)\s*%}$` ),
 	T_BLOCK         = new_token( "T_BLOCK",       `^{%\s*block\s+(.+?)\s*%}$` ),
 	T_ENDBLOCK      = new_token( "T_ENDBLOCK",    `^{%\s*end\s+block\s*%}$` ),
+	T_COLLAPSE      = new_token( "T_COLLAPSE",    `^{%\s*collapse\s*%}$` ),
+	T_ENDCOLLAPSE   = new_token( "T_ENDCOLLAPSE", `^{%\s*end\s+collapse\s*%}$` ),
 	T_IF            = new_token( "T_IF",          `^{%\s*if\s+(.+?)\s*%}$` ),
 	T_ELSIF         = new_token( "T_ELSIF",       `^{%\s*elsif\s+(.+?)\s*%}$` ),
 	T_ELSE          = new_token( "T_ELSE",        `^{%\s*else\s*%}$` ),
@@ -394,6 +396,9 @@ public function parse_tokens( sequence tokens, integer start = 1, sequence exit_
 			case T_BLOCK then
 				{temp,i} = parse_tokens( tokens, i, {T_ENDBLOCK} )
 
+			case T_COLLAPSE then
+				{temp,i} = parse_tokens( tokens, i, {T_ENDCOLLAPSE} )
+
 			case T_IF then
 				{temp,i} = parse_tokens( tokens, i, {T_ELSIF,T_ELSE,T_ENDIF} )
 
@@ -497,15 +502,15 @@ public function parse_value( sequence data, object response )
 		sequence func_name = matches[2]
 		sequence func_params = matches[3]
 
-		func_params = keyvalues( func_params, ",", "=", "\"'" )
+		func_params = keyvalues( func_params, ",", "=", "\"",, FALSE )
 
-		for i = 1 to length( func_params ) do
-			func_params[i] = parse_value( func_params[i][2], response )
-		end for
-
-		if equal( func_name, "isset" ) and length( func_params ) < 2 then
+		if equal( func_name, "isset" ) and length( func_params ) = 1 then
 			-- manually pass the current response object to isset() function
-			func_params = append( func_params, response )
+			func_params = { func_params[1], response }
+		else
+			for i = 1 to length( func_params ) do
+				func_params[i] = parse_value( func_params[i], response )
+			end for
 		end if
 
 		var_value = call_function( func_name, func_params )
@@ -707,33 +712,6 @@ public function render_for( sequence tree, integer i, object response )
 end function
 
 --
--- Render a token.
---
-public function render_token( sequence tree, integer i, object response )
-
-	switch tree[i][TTYPE] do
-
-		case T_FRAGMENT then
-			return render_fragment( tree, i, response )
-
-		case T_EXPRESSION then
-			return render_expression( tree, i, response )
-
-		case T_BLOCK then
-			return render_block( tree, i, response )
-
-		case T_IF then
-			return render_if( tree, i, response )
-
-		case T_FOR then
-			return render_for( tree, i, response )
-
-	end switch
-
-	return {"",i+1}
-end function
-
---
 -- Render a token block.
 --
 public function render_block( sequence tree, integer i, object response )
@@ -750,6 +728,66 @@ public function render_block( sequence tree, integer i, object response )
 	end while
 
 	return {output,i+1}
+end function
+
+--
+-- Render a collapsed block.
+--
+public function render_collapse( sequence tree, integer i, object response )
+
+	sequence output = ""
+	sequence temp = ""
+
+	integer j = 1
+	sequence subtree = tree[i][TTREE]
+
+	while j <= length( subtree ) do
+		{temp,j} = render_token( subtree, j, response )
+
+		temp = match_replace( "\r", temp, " " )
+		temp = match_replace( "\n", temp, " " )
+		temp = match_replace( "\t", temp, " " )
+
+		output &= temp
+	end while
+
+	while match( "  ", output ) do
+		output = match_replace( "  ", output, " " )
+	end while
+
+	output = text:trim( output )
+
+	return {output,i+1}
+end function
+
+--
+-- Render a token.
+--
+public function render_token( sequence tree, integer i, object response )
+
+	switch tree[i][TTYPE] do
+
+		case T_FRAGMENT then
+			return render_fragment( tree, i, response )
+
+		case T_EXPRESSION then
+			return render_expression( tree, i, response )
+
+		case T_BLOCK then
+			return render_block( tree, i, response )
+
+		case T_COLLAPSE then
+			return render_collapse( tree, i, response )
+
+		case T_IF then
+			return render_if( tree, i, response )
+
+		case T_FOR then
+			return render_for( tree, i, response )
+
+	end switch
+
+	return {"",i+1}
 end function
 
 --
@@ -867,15 +905,15 @@ public function parse_template( sequence text, object response = {}, integer fre
 
 	-- allow response to be { {"key","value"}, ... } sequence
 	if sequence( response ) then
-		
+
 		if length( response ) = 2 and string( response[1] ) then
 			-- response is just {"key","value"}
 			response = {response}
 		end if
-		
+
 		response = map:new_from_kvpairs( response )
 		free_response = TRUE
-		
+
 	end if
 
 	integer j = 1
