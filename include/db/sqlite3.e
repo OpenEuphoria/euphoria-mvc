@@ -102,12 +102,16 @@ ifdef WINDOWS then
 export atom sqlite3 = open_dll( "sqlite3.dll" )
 
 elsifdef LINUX then
-export atom sqlite3 = open_dll( "libsqlite3.so" )
+export atom sqlite3 = open_dll({ "libsqlite3.so.0", "libsqlite3.so" })
 
 elsedef
 error:crash( "Platform not supported" )
 
 end ifdef
+
+if sqlite3 = NULL then
+	error:crash( "sqlite3 not found!" )
+end if
 
 constant
 	_sqlite3_version                = define_c_var( sqlite3, "sqlite3_version" ),
