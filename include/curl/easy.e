@@ -70,10 +70,8 @@ public function curl_easy_init()
 	end if
 
 ifdef CURLOPT_VERBOSE then
-
 	-- allow the user to specify verbose on the command line
 	curl_easy_setopt( curl, CURLOPT_VERBOSE, TRUE )
-
 end ifdef
 
 ifdef WINDOWS then
@@ -568,7 +566,14 @@ end function
  * cookies.
  */
 public procedure curl_easy_reset( atom curl )
+
 	c_proc( _curl_easy_reset, {curl} )
+
+ifdef CURLOPT_VERBOSE then
+	-- reset the verbose flag if it was set on the command line
+	curl_easy_setopt( curl, CURLOPT_VERBOSE, TRUE )
+end ifdef
+
 end procedure
 
 /*
