@@ -438,8 +438,8 @@ public function parse_tokens( sequence tokens, integer start = 1, sequence exit_
 end function
 
 --constant re_variable = regex:new( `^([\w\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
-constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9\.]+)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
-constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]+)\((.*)\)$` )
+constant re_variable = regex:new( `^([_a-zA-Z][_a-zA-Z0-9\.]*)(\[(?:[\w\"\'\.]|\]\[)+\])?$` )
+constant re_function = regex:new( `^([_a-zA-Z][_a-zA-Z0-9]*)\((.*)\)$` )
 
 --
 -- Returns TRUE is a string starts and ends with "" or ''
