@@ -130,7 +130,7 @@ public procedure add_function( sequence func_name, sequence params = {}, integer
 
 	if not map:has( m_functions, func_name ) then
 		map:put( m_functions, func_name, {params,func_id} )
-		log_trace( "registered function %s with params %s at routine id %d", {func_name,params,func_id} )
+		log_debug( "registered function %s with params %s at routine id %d", {func_name,params,func_id} )
 	end if
 
 end procedure
@@ -233,6 +233,11 @@ function _pretty( object x, object p )
 	return pretty_sprint( x, p )
 end function
 
+-- sprintf()
+function _sprintf( object x, object d )
+	return sprintf( x, d )
+end function
+
 -- add()
 function _add( object a, object b )
 	return a + b
@@ -258,11 +263,13 @@ function _isset( object k, object m )
 	return map( m ) and map:has( m, k )
 end function
 
--- template functions
-add_function( "atom",      {"x"},     routine_id("_atom") )
-add_function( "integer",   {"x"},     routine_id("_integer") )
-add_function( "sequence",  {"x"},     routine_id("_sequence") )
-add_function( "object",    {"x"},     routine_id("_object") )
+-- object functions
+add_function( "atom",     {"x"}, routine_id("_atom") )
+add_function( "integer",  {"x"}, routine_id("_integer") )
+add_function( "sequence", {"x"}, routine_id("_sequence") )
+add_function( "object",   {"x"}, routine_id("_object") )
+
+-- boolean functions
 add_function( "equal",     {"a","b"}, routine_id("_equal") )
 add_function( "not_equal", {"a","b"}, routine_id("_not_equal") )
 add_function( "length",    {"x"},     routine_id("_length") )
@@ -270,12 +277,17 @@ add_function( "not",       {"x"},     routine_id("_not") )
 add_function( "and",       {"a","b"}, routine_id("_and") )
 add_function( "or",        {"a","b"}, routine_id("_or") )
 add_function( "xor",       {"a","b"}, routine_id("_xor") )
-add_function( "pretty",    {"x",{"p",PRETTY_DEFAULT}}, routine_id("_pretty") )
-add_function( "add",       {"a","b"}, routine_id("_add") )
-add_function( "subtract",  {"a","b"}, routine_id("_subtract") )
-add_function( "multiply",  {"a","b"}, routine_id("_multiply") )
-add_function( "divide",    {"a","b"}, routine_id("_divide") )
-add_function( "isset",     {"x",{"k",NULL}}, routine_id("_isset") )
+
+-- math functions
+add_function( "add",      {"a","b"}, routine_id("_add") )
+add_function( "subtract", {"a","b"}, routine_id("_subtract") )
+add_function( "multiply", {"a","b"}, routine_id("_multiply") )
+add_function( "divide",   {"a","b"}, routine_id("_divide") )
+add_function( "isset",    {"x",{"k",NULL}}, routine_id("_isset") )
+
+-- formatting functions
+add_function( "pretty",  {"x",{"p",PRETTY_DEFAULT}}, routine_id("_pretty") )
+add_function( "sprintf", {"x",{"d",{}}}, routine_id("_sprintf") )
 
 -- datetime functions
 add_function( "format_date", {"d",{"f","%Y-%m-%d"}}, routine_id("datetime:format") )
