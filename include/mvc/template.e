@@ -69,15 +69,15 @@ public constant
 	T_EXTENDS       = new_token( "T_EXTENDS",     `^{%\s*extends\s+(.+?)\s*%}$` ),
 	T_INCLUDE       = new_token( "T_INCLUDE",     `^{%\s*include\s+(.+?)\s*%}$` ),
 	T_BLOCK         = new_token( "T_BLOCK",       `^{%\s*block\s+(.+?)\s*%}$` ),
-	T_ENDBLOCK      = new_token( "T_ENDBLOCK",    `^{%\s*end\s+block\s*%}$` ),
+	T_ENDBLOCK      = new_token( "T_ENDBLOCK",    `^{%\s*end\s*block\s*%}$` ),
 	T_COLLAPSE      = new_token( "T_COLLAPSE",    `^{%\s*collapse\s*%}$` ),
-	T_ENDCOLLAPSE   = new_token( "T_ENDCOLLAPSE", `^{%\s*end\s+collapse\s*%}$` ),
-	T_IF            = new_token( "T_IF",          `^{%\s*if\s+(.+?)\s*%}$` ),
-	T_ELSIF         = new_token( "T_ELSIF",       `^{%\s*elsif\s+(.+?)\s*%}$` ),
+	T_ENDCOLLAPSE   = new_token( "T_ENDCOLLAPSE", `^{%\s*end\s*collapse\s*%}$` ),
+	T_IF            = new_token( "T_IF",          `^{%\s*if\s+(.+?)(?:\s+then)?\s*%}$` ),
+	T_ELSIF         = new_token( "T_ELSIF",       `^{%\s*elsif\s+(.+?)(?:\s+then)?\s*%}$` ),
 	T_ELSE          = new_token( "T_ELSE",        `^{%\s*else\s*%}$` ),
-	T_ENDIF         = new_token( "T_ENDIF",       `^{%\s*end\s+if\s*%}$` ),
-	T_FOR           = new_token( "T_FOR",         `^{%\s*for\s+(.+?)\s*%}$` ),
-	T_ENDFOR        = new_token( "T_ENDFOR",      `^{%\s*end\s+for\s*%}$` ),
+	T_ENDIF         = new_token( "T_ENDIF",       `^{%\s*end\s*if\s*%}$` ),
+	T_FOR           = new_token( "T_FOR",         `^{%\s*for\s+(.+?)(?:\s+do)?\s*%}$` ),
+	T_ENDFOR        = new_token( "T_ENDFOR",      `^{%\s*end\s*for\s*%}$` ),
 $
 
 --
@@ -459,7 +459,6 @@ public function parse_value( sequence data, object response )
 		sequence var_name = matches[2]
 
 		if find( '.', var_name ) then
-
 			sequence var_list = stdseq:split( var_name, '.' )
 			var_value = map:nested_get( response, var_list, "" )
 
@@ -623,6 +622,7 @@ public function render_for( sequence tree, integer i, object response )
 		end if
 
 		sequence item_name = matches[2]
+
 		integer previous_index = map:get( response, "current_index", 0 )
 		object previous_item
 
@@ -633,11 +633,8 @@ public function render_for( sequence tree, integer i, object response )
 		for j = 1 to length( list_value ) do
 			map:put( response, "current_index", j )
 
-			object item_value = list_value[j]
-
-			map:put( response, item_name, item_value )
+			map:put( response, item_name, list_value[j] )
 			{temp,?} = render_block( tree, i, response )
-
 			output &= temp
 
 		end for
@@ -926,7 +923,6 @@ public function parse_template( sequence text, object response = {}, integer fre
 	end while
 
 	if free_response then
-		log_trace( "delete map %d", response )
 		delete( response )
 	end if
 
