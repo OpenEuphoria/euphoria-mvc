@@ -228,6 +228,14 @@ function _xor( object a, object b )
 	return a xor b
 end function
 
+-- format()
+function _format( object x, object p )
+	if atom( p ) then
+		p = {p}
+	end if
+	return text:format( x, p )
+end function
+
 -- pretty()
 function _pretty( object x, object p )
 	return pretty_sprint( x, p )
@@ -286,6 +294,7 @@ add_function( "divide",   {"a","b"}, routine_id("_divide") )
 add_function( "isset",    {"x",{"k",NULL}}, routine_id("_isset") )
 
 -- formatting functions
+add_function( "format",  {"x","p"}, routine_id("_format") )
 add_function( "pretty",  {"x",{"p",PRETTY_DEFAULT}}, routine_id("_pretty") )
 add_function( "sprintf", {"x",{"d",{}}}, routine_id("_sprintf") )
 
@@ -299,6 +308,11 @@ add_function( "get_comment", {"keys",{"one_string",TRUE},{"sep",DEFAULT_SEPARATO
 add_function( "has_comment", {"keys",{"sep",DEFAULT_SEPARATOR}}, routine_id("has_comment") )
 add_function( "get_config", {"keys",{"default",DEFAULT_VALUE},{"sep",DEFAULT_SEPARATOR}}, routine_id("get_config") )
 add_function( "has_config", {"keys",{"sep",DEFAULT_SEPARATOR}}, routine_id("has_config") )
+
+-- conversion functions
+add_function( "to_integer", {"x",{"d",0}}, routine_id("to_integer") )
+add_function( "to_number", {"x",{"p",0}}, routine_id("to_number") )
+add_function( "to_string", {"x",{"q",0},{"e",'"'}}, routine_id("to_string") )
 
 --
 -- Template token lexer.
