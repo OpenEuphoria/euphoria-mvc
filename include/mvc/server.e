@@ -2,6 +2,7 @@
 namespace server
 
 include std/console.e
+include std/convert.e
 --include std/map.e
 include std/net/url.e
 include std/sequence.e
@@ -19,12 +20,14 @@ include mvc/app.e
 include mvc/headers.e
 include mvc/hooks.e
 include mvc/mapdbg.e as map
+include mvc/utils.e
 
 public constant DEFAULT_ADDR = "127.0.0.1"
 public constant DEFAULT_PORT = 5000
 
 constant PROTOCOL_NONE = 0
 constant SOCKET_BACKLOG = 10
+constant SOCKET_RCVBUF = 4096
 constant SOCKET_TIMEOUT_SEC = 0
 constant SOCKET_TIMEOUT_MICRO = 100000
 
@@ -38,11 +41,11 @@ constant xShellExecuteA = define_c_func( shell32, "ShellExecuteA", {C_HANDLE,C_P
 constant SW_SHOWNORMAL = 1
 
 function _( object str, integer cleanup = TRUE )
-	
+
 	if sequence( str ) then
 		return allocate_string( str, cleanup )
 	end if
-	
+
 	return str
 end function
 
@@ -64,66 +67,113 @@ end procedure
 
 public procedure client_handler( socket client_sock, sequence client_addr )
 
-	object request_data = socket:receive( client_sock )
+	integer received_bytes = 0
+	object request_buff = socket:receive( client_sock )
 
-	if atom( request_data ) then
+	if atom( request_buff ) then
 		log_error( "Could not receive request data (%d)", socket:error_code() )
 		return
 	end if
 
-	integer received_bytes = length( request_data )
-	log_debug( "Received %d bytes from %s", {received_bytes,client_addr} )
+	received_bytes += length( request_buff )
 
-	integer separator = 0
-	sequence request_head = ""
-	sequence request_body = ""
+	integer request_sep = match( "\r\n\r\n", request_buff )
 
-	separator = match( "\r\n\r\n", request_data )
+	while request_sep = 0 do
 
-	if separator then
-		request_head = request_data[1..separator-1]
-		request_body = request_data[separator+4..$]
-	end if
+		object request_temp = socket:receive( client_sock )
 
-	separator = match( "\r\n", request_head )
+		if atom( request_temp ) then
+			log_error( "Could not receive request data (%d)", socket:error_code() )
+			return
+		end if
 
-	if separator then
-		request_data = request_head[1..separator-1]
-		request_head = request_head[separator+2..$]
-	end if
+		received_bytes += length( request_temp )
 
-	sequence request_info = split( request_data, " " ) -- e.g. {"GET","/path","HTTP/1.1"}
-	sequence request_method = request_info[1]
-	sequence path_info      = request_info[2]
-	sequence http_protocol  = request_info[3]
-	sequence query_string   = ""
+		if length( request_temp ) = 0 then
+			exit
+		end if
+
+		request_buff &= request_temp
+		request_sep = match( "\r\n\r\n", request_buff )
+
+	end while
+
+	sequence request_head = request_buff[1..request_sep-1]
+	sequence request_body = request_buff[request_sep+4..$]
 
 	sequence request_headers = split( request_head, "\r\n" )
-	for i = 1 to length( request_headers ) do
-		request_headers[i] = split( request_headers[i], ": " )
-	end for
+	request_headers[1] = split( request_headers[1], " " )
+
+	sequence request_method = request_headers[1][1]
+	sequence request_path   = request_headers[1][2]
+	sequence request_proto  = request_headers[1][3]
+	request_headers = request_headers[2..$]
 
 	log_trace( "request_method = %s",  {request_method} )
+	log_trace( "request_path = %s",    {request_path} )
+	log_trace( "request_proto = %s",   {request_proto} )
+
+	integer content_length = 0
+	sequence query_string = ""
+
+	for i = 1 to length( request_headers ) do
+		request_headers[i] = split( request_headers[i], ": " )
+		if equal( request_headers[i][1], "Content-Length" ) then
+			content_length = to_integer( request_headers[i][2] )
+		end if
+	end for
+
 	log_trace( "request_headers = %s", {request_headers} )
-	log_trace( "path_info = %s",       {path_info} )
-	log_trace( "http_protocol = %s",   {http_protocol} )
-	log_trace( "query_string = %s",    {query_string} )
+	log_trace( "content_length = %d",  {content_length} )
 
-	if find( '?', path_info ) then
-		{path_info,query_string} = split( path_info, '?' )
-	end if
+	while length( request_body ) < content_length do
 
-	if equal( request_method, "POST" ) then
+		request_buff = socket:receive( client_sock )
+
+		if atom( request_buff ) then
+			log_error( "Could not receive request data (%d)", socket:error_code() )
+			return
+		end if
+
+		received_bytes += length( request_buff )
+
+		if length( request_buff ) = 0 then
+			exit
+		end if
+
+		request_body &= request_buff
+
+	end while
+
+	delete( request_buff )
+
+	log_trace( "received %d bytes", received_bytes )
+
+	if equal( request_method, "GET" ) then
+
+		integer query_sep = find( '?', request_path )
+
+		if query_sep then
+			query_string = request_path[query_sep+1..$]
+			request_path = request_path[1..query_sep-1]
+		end if
+
+	elsif equal( request_method, "POST" ) then
+
 		if length( query_string ) then
 			query_string &= "&"
 		end if
+
 		query_string &= request_body
+
 	end if
 
-	path_info = url:decode( path_info )
-	query_string = url:decode( query_string )
+	delete( request_body )
 
-	sequence response_data = handle_request( path_info, request_method, query_string, request_headers )
+	request_path = url_decode( request_path )
+
+	sequence response_data = handle_request( request_path, request_method, query_string, request_headers )
 
 	if run_hooks( HOOK_HEADERS_START ) then
 		socket:close( client_sock )
@@ -132,12 +182,13 @@ public procedure client_handler( socket client_sock, sequence client_addr )
 
 	sequence status = get_header( "Status", "200 OK" )
 	sequence headers = format_headers()
+
 	clear_headers()
 
 	log_trace( "status = %s", {status} )
 	log_trace( "headers = %s", {headers} )
 
-	log_info( "%s %s %s %s", {client_addr,request_method,path_info,status} )
+	log_info( "%s %s %s %s", {client_addr,request_method,request_path,status} )
 
 	if run_hooks( HOOK_HEADERS_END ) then
 		socket:close( client_sock )
@@ -182,8 +233,18 @@ public function create_server( sequence listen_addr, integer listen_port )
 
 	log_debug( "Created server socket" )
 
-	if socket:set_option( server_sock, SOL_SOCKET, SO_REUSEADDR, TRUE ) != OK then
-		log_warn( "Could not set socket option SO_REUSEADDR (%d)", socket:error_code() )
+	integer result
+
+	result = socket:set_option( server_sock, SOL_SOCKET, SO_RCVBUF, SOCKET_RCVBUF )
+
+	if result != SOCKET_RCVBUF then
+		log_warn( "Could not set socket option SO_RCVBUF (%d)", {result} )
+	end if
+
+	result = socket:set_option( server_sock, SOL_SOCKET, SO_REUSEADDR, TRUE )
+
+	if result != TRUE then
+		log_warn( "Could not set socket option SO_REUSEADDR (%d)", {result} )
 	end if
 
 	if socket:bind( server_sock, listen_addr, listen_port ) != OK then
