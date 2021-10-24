@@ -2,7 +2,9 @@
 
 ## Concepts
 
-This database library provides a light abstraction layer over any number of third-party database libraries. It doesn't actually perform any database operations itself. You must include *at least one* database plugin library for this to library to work correctly.
+This database library provides a light abstraction layer over any number of third-party database libraries. It doesn't
+actually perform any database operations itself. You must include *at least one* database plugin library for this to
+library to work correctly.
 
 ## Example
 
@@ -22,20 +24,27 @@ This database library provides a light abstraction layer over any number of thir
 
 ## Global connection
 
-You'll notice in the above example that `conn` isn't actually reused by any of the other database routines. That's because each call to `db_connect()` will update the *global connection state* for your application and, as long as you only need one connection, you don't need to continue passing `conn` around to other routines. You can also use `db_select()` to update the global connection state at any time, or pass `conn` manually as the last parameter of each database routine.
+You'll notice in the above example that `conn` isn't actually reused by any of the other database routines. That's
+because each call to `db_connect()` will update the *global connection state* for your application and, as long as you
+only need one connection, you don't need to continue passing `conn` around to other routines. You can also use
+`db_select()` to update the global connection state at any time, or pass `conn` manually as the last parameter of each
+database routine.
 
 ## Database protocols
 
-Each plugin must register a unique "protocol" for use in the `db_connect()` connection URL. To remain consistent, this should be the same string as found in the plugin file name, e.g. `db_mysql.e` registers `mysql` as its protocol.
+Each plugin must register a unique "protocol" for use in the `db_connect()` connection URL. To remain consistent, this
+should be the same string as found in the plugin file name, e.g. `db_mysql.e` registers `mysql` as its protocol.
 
 ## Database libraries
 
-Include at least one of these libraries to in order to connect to a database. Currently only the MySQL is implemented. Third-party wrappers are stored in the `db/` directory and shared libraries (.so, .dll) should be placed in the `bin/` directory whenever necessary (usually just on Windows).
+Include at least one of these libraries to in order to connect to a database. Currently only the MySQL is implemented.
+Third-party wrappers are stored in the `db/` directory and shared libraries (.so, .dll) should be placed in the `bin/`
+directory whenever necessary (usually just on Windows).
 
 - [ ] `mvc/db_eusql.e`
 - [x] `mvc/db_mysql.e`
 - [ ] `mvc/db_postgres.e`
-- [ ] `mvc/db_sqlite.e`
+- [x] `mvc/db_sqlite3.e`
 
 ## Database routines
 
@@ -50,21 +59,6 @@ Include at least one of these libraries to in order to connect to a database. Cu
 * [`db_insert_id`](#db_insert_id)
 * [`db_query`](#db_query)
 * [`db_select`](#db_select)
-
-### add_protocol
-
-`include mvc/database.e`  
-`public function add_protocol( sequence proto )`
-
-Adds a new protocol handler. Used internally by database libraries.
-
-**Parameters**
-
-- **`proto`** - the protocol name to register
-
-**Returns**
-
-The unique ID of the registered protocol.
 
 ### add_handler
 
@@ -87,6 +81,21 @@ Adds a new function handler. Used internally by database libraries.
   - `DB_INSERT_ID`
   - `DB_AFFECTED_ROWS`
 - **`rtn_id`** - the routine ID of the function for this protocol and ID
+
+### add_protocol
+
+`include mvc/database.e`  
+`public function add_protocol( sequence proto )`
+
+Adds a new protocol handler. Used internally by database libraries.
+
+**Parameters**
+
+- **`proto`** - the protocol name to register
+
+**Returns**
+
+The unique ID of the registered protocol.
 
 ### db_affected_rows
 

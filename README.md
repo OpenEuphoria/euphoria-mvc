@@ -28,8 +28,8 @@ These modules function as-is but still need some improvements.
 * [mvc/cookie.e](docs/COOKIE.md) -- manage HTTP cookies
 * [mvc/creole.e](docs/CREOLE.md) -- Creole markup to HTML
 * [mvc/database.e](docs/DATABASE.md) -- database connections
-  * [mvc/db_mysql.e](docs/DB_MYSQL.md)
-  * [mvc/db_sqlite3.e](docs/DB_MYSQL.md)
+  * [mvc/db_mysql.e](docs/DATABASE.md#mysql)
+  * [mvc/db_sqlite3.e](docs/DATABASE.md#sqlite3)
 * [mvc/mapdbg.e](docs/MAPDBG.md) -- debugging for std/map.e
 * [mvc/session.e](docs/SESSION.md) -- manage HTTP sessions
 * [mvc/strbuf.e](docs/STRBUF.md) -- string buffer (for CURL)
