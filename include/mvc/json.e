@@ -319,7 +319,7 @@ export function json_parse_value( sequence js, integer start )
     return {json_type,json_value,i}
 end function
 
-public function json_parse( string js )
+public function json_parse( sequence js )
 
     jsontype_t json_type
     object json_value
@@ -355,7 +355,7 @@ public function json_sprint( sequence json_object, integer sorted_keys = TRUE, i
         line_break = ""
     end if
 
-    string s = ""
+    sequence s = ""
 
     switch json_object[J_TYPE] do
 
@@ -459,7 +459,7 @@ public function json_markup( object json_object, integer sorted_keys = TRUE, int
 		line_break = ""
 	end if
 
-    string s = "{"
+    sequence s = "{"
 
     switch json_object[J_TYPE] do
 
@@ -665,9 +665,11 @@ public function json_fetch( object json_object, sequence keys, object sep = '.' 
 
         found = 0
 
-        if t_digit( keys[i] ) then
-            keys[i] = to_integer( keys[i] )
-        end if
+        -- TODO: fix key indexing, e.g. "foo.bar[1]"
+
+    --  if t_digit( keys[i] ) then
+    --      keys[i] = to_integer( keys[i] )
+    --  end if
 
         for j = 1 to length( json_object[J_VALUE] ) do
 
