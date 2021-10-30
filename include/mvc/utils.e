@@ -6,6 +6,7 @@ include std/machine.e
 include std/convert.e
 include std/get.e
 include std/sequence.e
+include std/types.e
 without warning
 
 include mvc/logger.e
@@ -51,7 +52,6 @@ override function getenv( sequence env_name, integer env_type = AS_STRING, objec
 	object env_value = eu:getenv( env_name )
 
 	if atom( env_value ) then
-		log_warn( "Environment variable not found: %s", {env_name} )
 		env_value = default
 
 	elsif env_type = AS_STRING then
@@ -185,7 +185,7 @@ public procedure start_url( sequence url )
 
 ifdef WINDOWS then
 
-	c_func( xShellExecuteA, {hwnd,allocate_string("open",TRUE),allocate_string(url,TRUE),NULL,NULL,SW_SHOWNORMAL} )
+	c_func( xShellExecuteA, {NULL,allocate_string("open",TRUE),allocate_string(url,TRUE),NULL,NULL,SW_SHOWNORMAL} )
 
 elsifdef LINUX then
 
