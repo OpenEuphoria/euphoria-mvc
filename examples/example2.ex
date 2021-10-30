@@ -1,9 +1,12 @@
+--
+-- This example uses mockup data to send a map objects to the template parser.
+--
 
 include std/map.e
-include mvc/template.e
-
 include std/filesys.e
 include std/search.e
+include mvc/template.e
+
 if search:ends( "examples", current_dir() ) then
 	-- make sure we can find our templates
 	-- if we're in the 'examples' directory

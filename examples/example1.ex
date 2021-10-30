@@ -2,10 +2,10 @@
 -- This is just a basic example of the template engine.
 --
 
-include mvc/template.e
-
 include std/filesys.e
 include std/search.e
+include mvc/template.e
+
 if search:ends( "examples", current_dir() ) then
 	-- make sure we can find our templates
 	-- if we're in the 'examples' directory
