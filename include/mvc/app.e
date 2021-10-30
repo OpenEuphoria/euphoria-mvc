@@ -769,8 +769,26 @@ public procedure run()
 		query_string = get_bytes( STDIN, content_length )
 	end if
 
-	path_info = url:decode( path_info )
-	query_string = url:decode( query_string )
+	if match( "REQUEST_URI=", query_string ) = 1 then
+		-- N.B. Lighttpd passes the request URI
+		-- via QUERY_STRING instead of PATH_INFO
+
+		query_string = query_string[13..$]
+
+		integer query_start = find( '?', query_string )
+
+		if query_start = 0 then
+			path_info = query_string
+			query_string = ""
+		else
+			path_info = query_string[1..query_start-1]
+			query_string = query_string[query_start+1..$]
+		end if
+
+	end if
+
+	path_info = url_decode( path_info )
+	query_string = url_decode( query_string )
 
 	log_trace( "request_method = %s", {request_method} )
 	log_trace( "path_info = %s",      {path_info} )
