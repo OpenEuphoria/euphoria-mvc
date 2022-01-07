@@ -4,9 +4,11 @@ namespace json
 include std/convert.e
 include std/get.e
 include std/io.e
+include std/map.e
 include std/pretty.e
 include std/sequence.e
 include std/sort.e
+include std/text.e
 include std/types.e
 
 public enum
@@ -419,7 +421,11 @@ public function json_sprint( sequence json_object, integer sorted_keys = TRUE, i
             s &= sprintf( `"%s"`, {json_escape(json_object[J_VALUE])} )
 
         case JSON_NUMBER then
-            s &= sprintf( `%g`, {json_object[J_VALUE]} )
+            if integer( json_object[J_VALUE] ) then
+                s &= sprintf( `%d`, {json_object[J_VALUE]} )
+            elsif atom( json_object[J_VALUE] ) then
+                s &= sprintf( `%f`, {json_object[J_VALUE]} )
+            end if
 
         case JSON_PRIMITIVE then
             s &= sprintf( `%s`, {json_object[J_VALUE]} )
@@ -775,4 +781,55 @@ public function json_remove( object json_object, sequence keys, object sep = '.'
     end while
 
     return json_object
+end function
+
+public function json_import( object map_object )
+
+    jsontype_t json_type = JSON_NONE
+    object json_value = 0
+
+    json_clear_error()
+
+    if not map( map_object ) then
+        json_push_error( "json_import(): Expected a map object" )
+        return {json_type,json_value}
+    end if
+
+    json_value = {}
+
+    integer json_error = FALSE
+    sequence map_keys = map:keys( map_object )
+
+    for i = 1 to length( map_keys ) do
+
+        object key_object = map_keys[i]
+
+        if not string( key_object ) then
+            json_push_error( "json_import(): Invalid JSON key `%s`", {sprint(key_object)} )
+            json_error = TRUE
+            exit
+        end if
+
+        jsontype_t value_type = JSON_NONE
+        object value_object = map:get( map_object, key_object )
+
+        if atom( value_object ) then
+            value_type = JSON_NUMBER
+        elsif string( value_object ) then
+            value_type = JSON_STRING
+        else
+            json_push_error( "json_import(): Invalid JSON value `%s`", {sprint(value_object)} )
+            json_error = TRUE
+            exit
+        end if
+
+        json_value = append( json_value, {key_object,{value_type,value_object}}  )
+
+    end for
+
+    if not json_error then
+        json_type = JSON_OBJECT
+    end if
+
+    return {json_type,json_value}
 end function

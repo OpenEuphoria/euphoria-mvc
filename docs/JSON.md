@@ -55,6 +55,7 @@ If a value cannot be parsed, the returned value will be `{JSON_NONE,0}`. You can
 * [`json_compare`](#json_compare)
 * [`json_fetch`](#json_fetch)
 * [`json_haskey`](#json_haskey)
+* [`json_import`](#json_import)
 * [`json_markup`](#json_markup)
 * [`json_parse`](#json_parse)
 * [`json_parse_file`](#json_parse_file)
@@ -129,6 +130,26 @@ Returns `TRUE` if the value of **keys** exists in **json_object**.
 **Returns**
 
 Returns `TRUE` if the key or nested key path exists in the **json_object**.
+
+### json_import
+
+`include mvc/json.e`  
+`public function json_import( object map_object )`
+
+Imports the key/value pairs from a map to a `JSON_OBJECT` value.
+
+Please keep in mind that this function has significant limits:
+
+- Only string keys are allowed (this is a JSON limitation).
+- Only number and string values are allowed (this is a Euphoria limitation).
+
+**Parameters**
+
+- **`map_object`** - the map containing key/value pairs to import
+
+**Returns**
+
+A sequence containing `{type,value}` where `type` is `JSON_OBJECT` if the map was parsed correctly, or `JSON_NONE` if there was an error, in which case check the output of `json_last_error()` for the reason.
 
 ### json_markup
 
