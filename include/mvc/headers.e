@@ -32,7 +32,11 @@ public procedure set_header( sequence header_name, object header_value, object d
 		header_value = sprintf( header_value, data )
 
 	elsif sequence_array( header_value ) and length( header_value ) = 1 then
-		header_value = map:get( m_headers, header_name, {} ) & {header_value}
+		sequence header_temp = map:get( m_headers, header_name, {} )
+		if not find( header_value[1], header_temp ) then
+			header_temp = append( header_temp, header_value[1] )
+		end if
+		header_value = header_temp
 
 	end if
 
